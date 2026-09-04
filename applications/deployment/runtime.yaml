@@ -1,0 +1,27 @@
+database:
+  # Server-owned subset of the canonical application migration stream.
+  migrations:
+    - id: 0011_evolver_central_controller
+      path: applications/deployment/databases/postgres/migrations/0011_evolver_central_controller.sql
+    - id: 0013_evolver_calibration_control_plane
+      path: applications/deployment/databases/postgres/migrations/0013_evolver_calibration_control_plane.sql
+    - id: 0016_evolver_release_history
+      path: applications/deployment/databases/postgres/migrations/0016_evolver_release_history.sql
+    - id: 0017_evolver_run_resources
+      path: applications/deployment/databases/postgres/migrations/0017_evolver_run_resources.sql
+    - id: 0018_evolver_control_plane_operations
+      path: applications/deployment/databases/postgres/migrations/0018_evolver_control_plane_operations.sql
+    - id: 0019_evolver_lease_token
+      path: applications/deployment/databases/postgres/migrations/0019_evolver_lease_token.sql
+    - id: 0020_evolver_controller_lifecycle
+      path: applications/deployment/databases/postgres/migrations/0020_evolver_controller_lifecycle.sql
+    - id: 0021_evolver_command_delivery_projection
+      path: applications/deployment/databases/postgres/migrations/0021_evolver_command_delivery_projection.sql
+    - id: 0022_evolver_command_delivery_eligibility
+      path: applications/deployment/databases/postgres/migrations/0022_evolver_command_delivery_eligibility.sql
+    - id: 0023_evolver_calibration_evidence
+      path: applications/deployment/databases/postgres/migrations/0023_evolver_calibration_evidence.sql
+    - id: 0024_evolver_component_calibration_targets
+      path: applications/deployment/databases/postgres/migrations/0024_evolver_component_calibration_targets.sql
+    - id: 0025_runtime_provenance
+      path: applications/deployment/databases/postgres/migrations/0025_runtime_provenance.sql

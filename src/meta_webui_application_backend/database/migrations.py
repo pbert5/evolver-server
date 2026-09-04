@@ -14,7 +14,8 @@ from typing import Callable
 import yaml
 
 
-REPOSITORY_ROOT = Path(os.environ.get("META_WEBUI_REPOSITORY_ROOT", Path.cwd()))
+_MODULE_ROOT = Path(__file__).resolve().parents[3]
+REPOSITORY_ROOT = Path(os.environ.get("META_WEBUI_REPOSITORY_ROOT", _MODULE_ROOT))
 HISTORY_TABLE = "system.schema_migrations"
 TRANSACTION_CONTROL = re.compile(r"^\s*(BEGIN|COMMIT|ROLLBACK)\b", re.IGNORECASE | re.MULTILINE)
 
