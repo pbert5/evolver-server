@@ -78,9 +78,20 @@ def resolve_definition_bundle(
     if not isinstance(snapshot, Mapping) or not isinstance(snapshot.get("content"), Mapping):
         raise BundleResolutionError("ExperimentDefinition.definition must contain structured content")
     content = dict(snapshot["content"])
+    # The schema compiler emits an immutable bundle-shaped content snapshot.
+    # Accepting that shape here keeps central resolution independent of the
+    # mutable catalog representation while preserving the legacy payload form.
+    compiled = content.get("resolved_definition") is not None
     for field in ("schema_version", "execution_mode", "execution_plan"):
         if field not in content:
             raise BundleResolutionError(f"definition content requires {field} for bundle resolution")
+    if not isinstance(content["execution_plan"], Mapping):
+        raise BundleResolutionError("definition content execution_plan must be a mapping")
+    plan = content["execution_plan"]
+    if not isinstance(plan.get("initial_state"), str) or not isinstance(plan.get("states"), Mapping):
+        raise BundleResolutionError("definition content execution_plan must be a compiled state-machine plan")
+    if compiled and not isinstance(content.get("action_registry_revision"), str):
+        raise BundleResolutionError("compiled definition requires action_registry_revision")
     requirements = definition.get("calibration_requirements", content.get("calibration_requirements", []))
     if not isinstance(requirements, list):
         raise BundleResolutionError("ExperimentDefinition.calibration_requirements must be a list")
@@ -88,10 +99,12 @@ def resolve_definition_bundle(
         "id": definition["id"], "name": definition["name"], "purpose": definition.get("purpose", "research"),
         "schema_version": content["schema_version"], "execution_mode": content["execution_mode"],
         "source": {"experiment_id": definition["id"], "dataset_revision": definition["dataset_revision"], "created_at": resolved_at},
-        "resolved_definition": dict(snapshot), "execution_plan": content["execution_plan"],
+        "resolved_definition": dict(snapshot), "execution_plan": dict(content["execution_plan"]),
         "runtime_parameters": content.get("runtime_parameters", []), "source_metadata": content.get("source_metadata", []),
         "calibration_requirements": requirements,
     }
+    if compiled:
+        bundle["action_registry_revision"] = content["action_registry_revision"]
     return resolve_bundle(bundle, selected_calibration_artifacts)
 
 
@@ -2073,8 +2086,12 @@ def manual_control_command(controller_id: str, body: Any, *, operator: OperatorI
                 return HTTPStatus.BAD_REQUEST, _error("heater pulse level must be 1..64 and duration 1..250 ms", "InvalidHeaterPulse", state)
         if operation == "stir_pulse":
             duration = body.get("duration_ms", 0)
-            if not isinstance(duration, int) or not 1 <= duration <= 5000:
-                return HTTPStatus.BAD_REQUEST, _error("stir pulse duration must be 1..5000 ms", "InvalidStirPulse", state)
+            channel = body.get("channel", 0)
+            level = body.get("level", 1)
+            if (not isinstance(duration, int) or isinstance(duration, bool) or not 1 <= duration <= 1000
+                    or not isinstance(channel, int) or isinstance(channel, bool) or not 0 <= channel <= 1
+                    or not isinstance(level, int) or isinstance(level, bool) or not 1 <= level <= 250):
+                return HTTPStatus.BAD_REQUEST, _error("stir pulse channel must be 0..1, level 1..250, and duration 1..1000 ms", "InvalidStirPulse", state)
         ttl_seconds = body.get("ttl_seconds", 15)
         if not isinstance(ttl_seconds, int) or isinstance(ttl_seconds, bool) or not 1 <= ttl_seconds <= 60:
             return HTTPStatus.BAD_REQUEST, _error("ttl_seconds must be between 1 and 60", "InvalidCommandTTL", state)

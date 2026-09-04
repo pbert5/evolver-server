@@ -80,6 +80,25 @@ def test_adapter_preserves_generation_revision_and_manual_lease_fencing(tmp_path
                for item in projected["commands"])
 
 
+def test_adapter_exposes_bounded_simulator_safe_stir(tmp_path):
+    adapter, _ = _adapter(tmp_path)
+    operator = _operator("operate_run")
+    status, _ = adapter.dispatch("evolver.controllers.manual.lease",
+                                 {"controller_id": "edge-a", "ttl_seconds": 60}, operator=operator)
+    assert status == HTTPStatus.CREATED
+    status, queued = adapter.dispatch("evolver.controllers.manual.stir", {
+        "controller_id": "edge-a", "duration_ms": 100, "channel": 1, "level": 25,
+        "ttl_seconds": 10, "idempotency_key": "safe-stir-1",
+    }, operator=operator)
+    assert status == HTTPStatus.ACCEPTED
+    assert queued["command"]["operation"] == "stir_pulse"
+    assert queued["command"]["parameters"] == {"channel": 1, "duration_ms": 100, "level": 25}
+    status, _ = adapter.dispatch("evolver.controllers.manual.stir", {
+        "controller_id": "edge-a", "duration_ms": 1001, "channel": 1, "level": 25,
+    }, operator=operator)
+    assert status == HTTPStatus.BAD_REQUEST
+
+
 def test_adapter_routes_recovery_and_resources_through_controller(tmp_path):
     adapter, _ = _adapter(tmp_path)
     operator = _operator("recover_controller", "operate_run")
@@ -90,4 +109,3 @@ def test_adapter_routes_recovery_and_resources_through_controller(tmp_path):
     assert status == HTTPStatus.NOT_FOUND
     denied, _ = adapter.dispatch("recovery_import", {"controller_id": "edge-a", "snapshot_id": "x", "action": "ignore"})
     assert denied == HTTPStatus.UNAUTHORIZED
-

@@ -37,6 +37,12 @@ ACTION_ADAPTERS = {
     "evolver.controllers.release.set": "desired_release",
     "evolver.controllers.commands.list": "commands",
     "evolver.controllers.commands.show": "commands",
+    "evolver.controllers.manual.lease": "manual_lease",
+    "evolver.controllers.manual.lease.show": "manual_lease_show",
+    "evolver.controllers.manual.lease.revoke": "manual_lease_revoke",
+    "evolver.controllers.manual.lease.emergency_release": "manual_lease_emergency_release",
+    "evolver.controllers.manual.command": "manual_command",
+    "evolver.controllers.manual.stir": "manual_stir",
     "evolver.controllers.recovery.request": "recovery",
     "evolver.controllers.recovery.status": "recovery",
     "evolver.controllers.recovery.diff": "recovery_diff",
@@ -145,10 +151,18 @@ def dispatch(action: str, parameters: Mapping[str, Any] | None = None, *,
     if action in {"rollback", "controller_rollback", "evolver.controller_rollback"}:
         return evolver_controller.request_rollback(str(controller_id), body, operator=operator, state_root=state_root)
 
-    if action in {"lease", "manual_control_lease", "evolver.manual_control_lease"}:
+    if action in {"manual_lease", "manual_lease_show", "manual_lease_revoke", "manual_lease_emergency_release",
+                  "lease", "manual_control_lease", "evolver.manual_control_lease"}:
+        lease_action = {"manual_lease_show": "get", "manual_lease_revoke": "revoke",
+                        "manual_lease_emergency_release": "emergency_release"}.get(
+                            action, str(params.get("lease_action", "acquire")))
         return evolver_controller.manual_control_lease(str(controller_id), body, operator=operator,
-                                                       action=str(params.get("lease_action", "acquire")), state_root=state_root)
-    if action in {"manual_command", "instrument_manual_command", "evolver.instrument_manual_command"}:
+                                                       action=lease_action, state_root=state_root)
+    if action in {"manual_command", "manual_stir", "instrument_manual_command", "evolver.instrument_manual_command"}:
+        if action == "manual_stir":
+            body["operation"] = "stir_pulse"
+            body.setdefault("channel", 0)
+            body.setdefault("level", 1)
         return evolver_controller.manual_control_command(str(controller_id), body, operator=operator, state_root=state_root)
 
     if action in {"run_command", "evolver.run_command", "pause_run", "resume_run", "stop_run"}:
