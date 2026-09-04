@@ -1,0 +1,4 @@
+[console_scripts]
+evolver-controller = meta_webui_application_backend.evolver_edge.service:main
+evolver-hardware = meta_webui_application_backend.evolver_edge.hardware_service:main
+evolverctl = meta_webui_application_backend.evolver_edge.cli:main

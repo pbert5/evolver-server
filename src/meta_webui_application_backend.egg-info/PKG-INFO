@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: meta-webui-application-backend
+Version: 0.1.3
+Requires-Python: >=3.10
+Requires-Dist: meta-webui-server-runtime==0.1.0
+Requires-Dist: meta-webui-config-compiler==0.1.0
+Requires-Dist: meta-webui-ui-runtime-textual==0.1.0
+Requires-Dist: pyserial==3.5
+Requires-Dist: zstandard==0.25.0

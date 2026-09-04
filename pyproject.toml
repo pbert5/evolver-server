@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+[project]
+name = "evolver-server"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = ["PyYAML>=6", "psycopg[binary]>=3.1", "zstandard>=0.25"]
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-xdist>=3.8", "pytest-cov>=6"]
+[project.scripts]
+evolver-control = "meta_webui_application_backend.evolver_control.service:main"
+[tool.setuptools.packages.find]
+where = ["src"]
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
