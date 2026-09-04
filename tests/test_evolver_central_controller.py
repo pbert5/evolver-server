@@ -447,6 +447,29 @@ def test_controller_projection_is_read_only_and_redacts_credentials(tmp_path):
     assert detail["controller"]["binding"] == enrolled["binding"]
 
 
+def test_edge_fact_projections_are_bounded_and_keep_intent_distinct(tmp_path):
+    _, token = evolver_controller.create_enrollment_token(server_url="https://central", state_root=tmp_path)
+    _, enrolled = evolver_controller.enroll({"controller_id": "edge-a", "enrollment_token": token["enrollment_token"]}, state_root=tmp_path)
+    body = {
+        "controller_id": "edge-a", "controller_generation": enrolled["binding"]["controller_generation"],
+        "telemetry_batches": [{"stream_id": "run-a:od", "first_sequence": 1, "last_sequence": 1,
+                               "records": [{"stream_id": "run-a:od", "sequence": 1, "run_id": "run-a", "od": 0.4}]}],
+        "event_batches": [{"run_id": "run-a", "records": [{"run_id": "run-a", "sequence": 1, "event_type": "run_started"}]}],
+        "command_acknowledgements": [{"command_id": "command-1", "disposition": "completed"}],
+    }
+    assert evolver_controller.sync(body, credential=enrolled["credential"], state_root=tmp_path)[0] == HTTPStatus.OK
+    status, payload = evolver_controller.edge_facts(controller_id="edge-a", run_id="run-a", limit=1, state_root=tmp_path)
+    assert status == HTTPStatus.OK
+    assert payload["telemetry"][0]["stream_id"] == "run-a:od"
+    assert payload["events"][0]["event_type"] == "run_started"
+    assert payload["measurements"] == []  # uncalibrated derived values are not measurements
+    assert payload["evidence"][0]["disposition"] == "completed"
+    assert "credential_digest" not in repr(payload)
+    status, routed = evolver_controller.dispatch("GET", "/api/evolver/controllers/edge-a/telemetry",
+                                                  None, query="run_id=run-a&limit=1", state_root=tmp_path)
+    assert status == HTTPStatus.OK and len(routed["telemetry"]) == 1
+
+
 def test_instrument_and_maintenance_projections_are_read_only_and_bounded(tmp_path, monkeypatch):
     monkeypatch.setenv(evolver_controller.STATE_ROOT_ENV, str(tmp_path))
     _, token = evolver_controller.create_enrollment_token(server_url="https://webui.example", state_root=tmp_path)

@@ -2127,6 +2127,64 @@ def audit_events(*, state_root: Path | None = None) -> tuple[HTTPStatus, dict[st
                                "webui_controller": _response_identity(state)}
 
 
+def edge_facts(*, controller_id: str | None = None, run_id: str | None = None,
+               kind: str = "all", limit: int = 500,
+               state_root: Path | None = None) -> tuple[HTTPStatus, dict[str, Any]]:
+    """Return bounded projections of facts reported by edge controllers.
+
+    These are not command or run-intent projections. ACKs and observations
+    retain their edge source and never imply physical application of intent.
+    """
+    kinds = {"all", "telemetry", "measurements", "activities", "events", "evidence", "logs"}
+    if kind not in kinds:
+        return HTTPStatus.BAD_REQUEST, _error("unsupported edge fact kind")
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 5000:
+        return HTTPStatus.BAD_REQUEST, _error("limit must be an integer between 1 and 5000")
+    with _LOCK:
+        state = _state(state_path(state_root))
+        controllers = state.get("controllers", {})
+        if controller_id is not None and not isinstance(controllers.get(controller_id), dict):
+            return HTTPStatus.NOT_FOUND, _error("controller not found", "NotFound", state)
+        telemetry: list[dict[str, Any]] = []
+        measurements: list[dict[str, Any]] = []
+        events: list[dict[str, Any]] = []
+        acknowledgements: list[dict[str, Any]] = []
+        diagnostic_evidence: list[dict[str, Any]] = []
+        for current_id, controller in controllers.items():
+            if controller_id is not None and current_id != controller_id:
+                continue
+            if not isinstance(controller, dict):
+                continue
+            raw_telemetry = [copy.deepcopy(item) for item in controller.get("telemetry", []) if isinstance(item, dict)]
+            raw_events = [copy.deepcopy(item) for item in controller.get("events", []) if isinstance(item, dict)]
+            raw_acks = [copy.deepcopy(item) for item in controller.get("acknowledgements", []) if isinstance(item, dict)]
+            if run_id is not None:
+                raw_telemetry = [item for item in raw_telemetry if item.get("run_id") == run_id or str(item.get("stream_id", "")).startswith(f"{run_id}:")]
+                raw_events = [item for item in raw_events if item.get("run_id") == run_id]
+            for item in (*raw_telemetry, *raw_events, *raw_acks):
+                item.setdefault("controller_id", current_id)
+            telemetry.extend(raw_telemetry)
+            measurements.extend(_normalized_telemetry(str(current_id), raw_telemetry))
+            events.extend(raw_events)
+            acknowledgements.extend(raw_acks)
+            observation = controller.get("hardware_observation")
+            if isinstance(observation, dict) and run_id is None:
+                diagnostic_evidence.append({**copy.deepcopy(observation), "controller_id": current_id})
+        activities = copy.deepcopy(events)
+        logs = copy.deepcopy(events)
+        for rows in (telemetry, measurements, activities, events, acknowledgements, diagnostic_evidence, logs):
+            del rows[:-limit]
+        payload: dict[str, Any] = {"controller_id": controller_id, "run_id": run_id,
+                                   "source": "edge_facts", "webui_controller": _response_identity(state)}
+        if kind in {"all", "telemetry"}: payload["telemetry"] = telemetry
+        if kind in {"all", "measurements"}: payload["measurements"] = measurements
+        if kind in {"all", "activities"}: payload["activities"] = activities
+        if kind in {"all", "events"}: payload["events"] = events
+        if kind in {"all", "evidence"}: payload["evidence"] = diagnostic_evidence + acknowledgements
+        if kind in {"all", "logs"}: payload["logs"] = logs
+        return HTTPStatus.OK, payload
+
+
 def request_rollback(controller_id: str, body: Any, *, operator: OperatorIdentity | None,
                      state_root: Path | None = None) -> tuple[HTTPStatus, dict[str, Any]]:
     denied = _require_operator(operator, "update_controller")
@@ -2597,6 +2655,19 @@ def dispatch(method: str, path: str, body: Any, *, query: str = "", authorizatio
         if suffix.endswith("/manual-command"):
             controller_id = suffix.removesuffix("/manual-command").strip("/")
             return manual_control_command(controller_id, body, operator=operator, state_root=state_root) if method == "POST" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
+        for fact_kind in ("measurements", "telemetry", "activities", "events", "evidence", "logs"):
+            if suffix.endswith(f"/{fact_kind}"):
+                controller_id = suffix.removesuffix(f"/{fact_kind}").strip("/")
+                if method != "GET":
+                    return HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed")
+                from urllib.parse import parse_qs
+                params = parse_qs(query)
+                try:
+                    limit = int(params.get("limit", ["500"])[0])
+                except ValueError:
+                    return HTTPStatus.BAD_REQUEST, _error("limit must be an integer")
+                return edge_facts(controller_id=controller_id, run_id=params.get("run_id", [None])[0],
+                                  kind=fact_kind, limit=limit, state_root=state_root)
         if suffix.endswith("/name"):
             controller_id = suffix.removesuffix("/name").strip("/")
             return rename_entity("controllers", controller_id, body.get("name") if isinstance(body, dict) else None, operator=operator) if method == "POST" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))

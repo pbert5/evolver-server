@@ -47,6 +47,12 @@ ACTION_ADAPTERS = {
     "evolver.runs.pause": "pause_run",
     "evolver.runs.resume": "resume_run",
     "evolver.runs.stop": "stop_run",
+    "evolver.controllers.measurements": "measurements",
+    "evolver.controllers.telemetry": "telemetry",
+    "evolver.controllers.activities": "activities",
+    "evolver.controllers.events": "events",
+    "evolver.controllers.evidence": "evidence",
+    "evolver.controllers.logs": "logs",
     "evolver.experiments.validate": "experiment_validate",
     "evolver.experiments.describe": "experiment_describe",
     "evolver.experiments.plan": "experiment_plan",
@@ -89,6 +95,10 @@ def dispatch(action: str, parameters: Mapping[str, Any] | None = None, *,
         return evolver_controller.runs(run_id=params.get("run_id"), state_root=state_root)
     if action in {"commands", "command", "evolver.commands"}:
         return evolver_controller.command_projection(str(params.get("controller_id", "")), params.get("command_id"), state_root=state_root)
+    if action in {"measurements", "telemetry", "activities", "events", "evidence", "logs"}:
+        return evolver_controller.edge_facts(controller_id=str(params.get("controller_id", "")) or None,
+                                             run_id=str(params.get("run_id", "")) or None,
+                                             kind=action, limit=params.get("limit", 500), state_root=state_root)
     if action in {"controller_freshness", "evolver.controller_freshness"}:
         return evolver_controller.controller_freshness(controller_id=params.get("controller_id"), state_root=state_root)
     if action in {"recovery", "recovery_manifest", "evolver.recovery"}:
