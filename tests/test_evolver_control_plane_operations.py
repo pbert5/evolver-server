@@ -102,7 +102,7 @@ def test_rollback_is_authorized_idempotent_and_generation_fenced(tmp_path):
     state = evolver_controller._read(state_path)
     state["release_history"].append({"release_id": "r1", "release_kind": "software", "version": "1.0"})
     state["release_deployments"].append({"deployment_id": "d1", "release_id": "r1", "controller_id": "edge-a", "controller_generation": 1})
-    state["release_events"].append({"id": "e1", "deployment_id": "d1", "event_type": "observed", "controller_generation": 1})
+    state["release_events"].append({"event_id": "e1", "deployment_id": "d1", "event_type": "observed", "controller_generation": 1})
     evolver_controller._write(state_path, state)
     denied, _ = evolver_controller.dispatch("POST", "/api/evolver/controllers/edge-a/rollback", {"release_id": "r1"}, operator=_operator("operate_run"), state_root=tmp_path)
     assert denied == HTTPStatus.FORBIDDEN
