@@ -83,7 +83,7 @@ def _compatibility_argv(argv: list[str]) -> list[str]:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="evolverctl", description="eVOLVER controller local operator CLI")
+    parser = argparse.ArgumentParser(prog="evoctl", description="eVOLVER controller local operator CLI")
     parser.add_argument("--state-root", help="persistent controller state directory")
     commands = parser.add_subparsers(dest="command", required=True)
     enroll = commands.add_parser("enroll"); enroll.add_argument("--server", required=True); enroll.add_argument("--token", required=True)
@@ -268,7 +268,7 @@ def main(argv: list[str] | None = None) -> int:
             try:
                 if args.update_command == "check":
                     _emit(manager.plan(args.release).__dict__); return 0
-                # Applying from evolverctl is a local, explicit maintenance
+                # Applying from evoctl is a local, explicit maintenance
                 # action.  The manager still records the release durably.
                 _emit(manager.request(args.release, explicit=True).__dict__); return 0
             except Exception as error:

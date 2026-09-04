@@ -15,7 +15,7 @@ from .store import EdgeStore
 
 
 OWNED_UNITS = ("evolver-hardware.service", "evolver-controller.service")
-OWNED_LINKS = ("evolverctl", "evolver-controller", "evolver-hardware")
+OWNED_LINKS = ("evoctl", "evolver-controller", "evolver-hardware")
 DEFAULT_NATIVE_ROOT = Path("/opt/evolver-controller")
 DEFAULT_BIN_ROOT = Path("/usr/local/bin")
 DEFAULT_SYSTEMD_ROOT = Path("/etc/systemd/system")
@@ -86,7 +86,7 @@ def _control_dropins(root: Path) -> dict[Path, str]:
 def inspect_installation(state_root: str | Path, *, native_root: str | Path = DEFAULT_NATIVE_ROOT) -> InstallationStatus:
     root = Path(state_root)
     native = Path(native_root)
-    runtime_installed = (native / "current/bin/evolverctl").is_file() and os.access(native / "current/bin/evolverctl", os.X_OK)
+    runtime_installed = (native / "current/bin/evoctl").is_file() and os.access(native / "current/bin/evoctl", os.X_OK)
     durable_state_present = (root / "edge.sqlite3").exists()
     if not (root / "edge.sqlite3").exists():
         return InstallationStatus(detect_backend(), platform.machine(), Path("/run/systemd/system").exists(), None, None, [], None,
@@ -250,10 +250,10 @@ def repair_installation(state_root: str | Path, *, native_root: str | Path = DEF
         raise RuntimeError("repair requires an installed current release; run the server-hosted installer")
     controller = current / "bin/evolver-controller"
     hardware = current / "bin/evolver-hardware"
-    ctl = current / "bin/evolverctl"
+    ctl = current / "bin/evoctl"
     if not all(item.is_file() and os.access(item, os.X_OK) for item in (controller, hardware, ctl)):
         raise RuntimeError("current release is incomplete; reinstall a verified release")
-    links = {"evolverctl": ctl, "evolver-controller": controller, "evolver-hardware": hardware}
+    links = {"evoctl": ctl, "evolver-controller": controller, "evolver-hardware": hardware}
     binaries = Path(bin_root).resolve(); binaries.mkdir(parents=True, exist_ok=True)
     for name, target in links.items():
         link = binaries / name
@@ -415,7 +415,7 @@ case "$SERVER_URL" in *[!A-Za-z0-9./:_-]*|*//*//* ) echo "--server contains unsu
 # this payload is piped from curl, prompts are read from /dev/tty so the
 # script stream is never consumed as operator input.
 CURRENT_CTL=""
-if [ -x "$NATIVE_ROOT/current/bin/evolverctl" ]; then CURRENT_CTL="$NATIVE_ROOT/current/bin/evolverctl"; fi
+if [ -x "$NATIVE_ROOT/current/bin/evoctl" ]; then CURRENT_CTL="$NATIVE_ROOT/current/bin/evoctl"; fi
 TARGET_CTL=""
 if [ -z "$OPERATION" ]; then
   case "$MODE" in
@@ -552,7 +552,7 @@ if [ "$MODE" = factory-reset ]; then
   exit 64
 fi
 if [ -n "$CURRENT_CTL" ]; then
-  EVOLVERCTL="$CURRENT_CTL"
+  EVOCTL="$CURRENT_CTL"
   CONTROLLER="$NATIVE_ROOT/current/bin/evolver-controller"
   HARDWARE="$NATIVE_ROOT/current/bin/evolver-hardware"
 fi
@@ -805,7 +805,7 @@ EOF
   install -m 0644 "$STAGE/firmware.bin" "$RELEASE_STAGE/firmware/firmware.bin"
   printf '%s\\n' "$FIRMWARE_SHA256" > "$RELEASE_STAGE/firmware/sha256"
   printf '%s\\n' "$FIRMWARE_VERSION" > "$RELEASE_STAGE/firmware/version"
-  [ -x "$RELEASE_STAGE/bin/evolverctl" ] && [ -x "$RELEASE_STAGE/bin/evolver-controller" ] && [ -x "$RELEASE_STAGE/bin/evolver-hardware" ] || {{ echo "fresh release is incomplete" >&2; exit 65; }}
+  [ -x "$RELEASE_STAGE/bin/evoctl" ] && [ -x "$RELEASE_STAGE/bin/evolver-controller" ] && [ -x "$RELEASE_STAGE/bin/evolver-hardware" ] || {{ echo "fresh release is incomplete" >&2; exit 65; }}
   # Release IDs are immutable. Never replace or merge an existing release,
   # even if an interrupted install left a partial directory behind.
   if [ -e "$RELEASE_ROOT" ]; then
@@ -815,7 +815,7 @@ EOF
   # Probe the target CLI while its staging interpreter still exists.  This is
   # the final semantic gate: a rejected/incompatible target cannot publish a
   # release, switch current, update services, or write controller state.
-  TARGET_CTL="$RELEASE_STAGE/bin/evolverctl"
+  TARGET_CTL="$RELEASE_STAGE/bin/evoctl"
   TARGET_CONTROLLER="$RELEASE_STAGE/bin/evolver-controller"
   TARGET_HARDWARE="$RELEASE_STAGE/bin/evolver-hardware"
   if ! "$TARGET_CTL" --state-root "$STATE_ROOT" lifecycle-plan --current-state "$CURRENT_STATE_FILE" --operation install >"$STAGE/planner-probe.json" 2>"$STAGE/planner-probe.err"; then
@@ -851,7 +851,7 @@ EOF
       sed -i "1s|$RELEASE_STAGE|$RELEASE_ROOT|" "$executable"
     fi
   done
-  TARGET_CTL="$RELEASE_ROOT/bin/evolverctl"
+  TARGET_CTL="$RELEASE_ROOT/bin/evoctl"
   TARGET_CONTROLLER="$RELEASE_ROOT/bin/evolver-controller"
   TARGET_HARDWARE="$RELEASE_ROOT/bin/evolver-hardware"
 }}
@@ -891,14 +891,14 @@ if [ "$MODE" = update ] || [ "$MODE" = clean-reinstall ] || [ "$MODE" = install 
   printf '%s\\n' "$FIRMWARE_VERSION" > "$FIRMWARE_ROOT/current"
 fi
 if [ "$MODE" = update ] || [ "$MODE" = clean-reinstall ] || [ "$MODE" = install ]; then
-  EVOLVERCTL="$NATIVE_ROOT/current/bin/evolverctl"; CONTROLLER="$NATIVE_ROOT/current/bin/evolver-controller"; HARDWARE="$NATIVE_ROOT/current/bin/evolver-hardware"
+  EVOCTL="$NATIVE_ROOT/current/bin/evoctl"; CONTROLLER="$NATIVE_ROOT/current/bin/evolver-controller"; HARDWARE="$NATIVE_ROOT/current/bin/evolver-hardware"
 else
-  EVOLVERCTL="$CURRENT_CTL"; CONTROLLER="$NATIVE_ROOT/current/bin/evolver-controller"; HARDWARE="$NATIVE_ROOT/current/bin/evolver-hardware"
+  EVOCTL="$CURRENT_CTL"; CONTROLLER="$NATIVE_ROOT/current/bin/evolver-controller"; HARDWARE="$NATIVE_ROOT/current/bin/evolver-hardware"
 fi
 TOOLCHAIN_ROOT="$NATIVE_ROOT/current/firmware-toolchain"
 install -d -m 0750 "$STATE_ROOT"
 install -d -m 0755 /usr/local/bin
-ln -sfn "$EVOLVERCTL" /usr/local/bin/evolverctl
+ln -sfn "$EVOCTL" /usr/local/bin/evoctl
 ln -sfn "$CONTROLLER" /usr/local/bin/evolver-controller
 ln -sfn "$HARDWARE" /usr/local/bin/evolver-hardware
 SYSTEMD_UNIT_DIR=/etc/systemd/system
@@ -938,16 +938,16 @@ systemctl daemon-reload
 case "$MODE" in
   install|re-enroll)
     [ -n "$TOKEN" ] || {{ echo "--token is required for $MODE" >&2; exit 64; }}
-    "$EVOLVERCTL" --state-root "$STATE_ROOT" enroll --server "$SERVER_URL" --token "$TOKEN" --mode repair || {{ [ "$MODE" = install ] && "$EVOLVERCTL" --state-root "$STATE_ROOT" enroll --server "$SERVER_URL" --token "$TOKEN"; }} ;;
+    "$EVOCTL" --state-root "$STATE_ROOT" enroll --server "$SERVER_URL" --token "$TOKEN" --mode repair || {{ [ "$MODE" = install ] && "$EVOCTL" --state-root "$STATE_ROOT" enroll --server "$SERVER_URL" --token "$TOKEN"; }} ;;
   repair|update|clean-reinstall) echo "State and controller identity were preserved at $STATE_ROOT." ;;
   handoff)
     [ -n "$TOKEN" ] || {{ echo "--token is required for $MODE" >&2; exit 64; }}
-    "$EVOLVERCTL" --state-root "$STATE_ROOT" enroll --server "$SERVER_URL" --token "$TOKEN" --mode live_handoff ;;
+    "$EVOCTL" --state-root "$STATE_ROOT" enroll --server "$SERVER_URL" --token "$TOKEN" --mode live_handoff ;;
   recover)
     [ -n "$TOKEN" ] || {{ echo "--token is required for $MODE" >&2; exit 64; }}
     [ "$CONFIRM_FORCED_ADOPTION" = true ] || {{ echo "recover requires --confirm-forced-adoption" >&2; exit 64; }}
-    "$EVOLVERCTL" --state-root "$STATE_ROOT" enroll --server "$SERVER_URL" --token "$TOKEN" --mode forced_adoption --confirm-forced-adoption ;;
-  export-state) "$EVOLVERCTL" --state-root "$STATE_ROOT" export-state "${{EVOLVER_RECOVERY_ARCHIVE:-recovery.tar.zst}}" ;;
+    "$EVOCTL" --state-root "$STATE_ROOT" enroll --server "$SERVER_URL" --token "$TOKEN" --mode forced_adoption --confirm-forced-adoption ;;
+  export-state) "$EVOCTL" --state-root "$STATE_ROOT" export-state "${{EVOLVER_RECOVERY_ARCHIVE:-recovery.tar.zst}}" ;;
   factory-reset) echo "Factory reset is intentionally not performed by this installer. Export recovery state and use a separately confirmed maintenance procedure." >&2; exit 64 ;;
 esac
 if systemctl is-active --quiet evolver-controller.service; then
@@ -969,14 +969,14 @@ if ! systemctl is-active --quiet evolver-hardware.service || ! systemctl is-acti
     echo "new native release failed service health; rolling back to previous release" >&2
     ln -s "$(readlink -f "$NATIVE_ROOT/previous")" "$NATIVE_ROOT/.current.rollback"
     mv -Tf "$NATIVE_ROOT/.current.rollback" "$NATIVE_ROOT/current"
-    EVOLVERCTL="$NATIVE_ROOT/current/bin/evolverctl"
+    EVOCTL="$NATIVE_ROOT/current/bin/evoctl"
     CONTROLLER="$NATIVE_ROOT/current/bin/evolver-controller"
     HARDWARE="$NATIVE_ROOT/current/bin/evolver-hardware"
     TOOLCHAIN_ROOT="$NATIVE_ROOT/current/firmware-toolchain"
     if [ -f "$NATIVE_ROOT/current/firmware/version" ]; then
       install -m 0644 "$NATIVE_ROOT/current/firmware/version" "$FIRMWARE_ROOT/current"
     fi
-    ln -sfn "$EVOLVERCTL" /usr/local/bin/evolverctl
+    ln -sfn "$EVOCTL" /usr/local/bin/evoctl
     ln -sfn "$CONTROLLER" /usr/local/bin/evolver-controller
     ln -sfn "$HARDWARE" /usr/local/bin/evolver-hardware
     if [ "$SYSTEMD_NIXOS_CONTROL" = true ]; then
@@ -999,7 +999,7 @@ EOF
   fi
   systemctl is-active --quiet evolver-hardware.service && systemctl is-active --quiet evolver-controller.service || {{ echo "controller update health check failed" >&2; exit 70; }}
 fi
-"$EVOLVERCTL" --state-root "$STATE_ROOT" install-status
+"$EVOCTL" --state-root "$STATE_ROOT" install-status
 INSTALL_COMMITTED=true
 '''
 
@@ -1014,11 +1014,11 @@ set -eu
 set +x
 # Once installed, uninstall is fully offline and uses no GitHub source or
 # server credential. The release fallback also handles a broken CLI symlink.
-if command -v evolverctl >/dev/null 2>&1; then
-  exec evolverctl uninstall "$@"
-elif [ -x /opt/evolver-controller/current/bin/evolverctl ]; then
-  exec /opt/evolver-controller/current/bin/evolverctl uninstall "$@"
+if command -v evoctl >/dev/null 2>&1; then
+  exec evoctl uninstall "$@"
+elif [ -x /opt/evolver-controller/current/bin/evoctl ]; then
+  exec /opt/evolver-controller/current/bin/evoctl uninstall "$@"
 fi
-echo "evolverctl is not installed; no software or controller state was changed." >&2
+echo "evoctl is not installed; no software or controller state was changed." >&2
 exit 69
 '''

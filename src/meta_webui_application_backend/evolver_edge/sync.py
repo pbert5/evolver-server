@@ -75,7 +75,7 @@ class SyncClient:
         )
 
     def enrollment_plan(self, *, server: str, requested_webui_controller_id: str | None = None) -> Json:
-        """Return the non-mutating binding decision shown by ``evolverctl``."""
+        """Return the non-mutating binding decision shown by ``evoctl``."""
         binding = self.store.binding()
         current = None if not binding else {"server": binding["server_url"], "central_identity": binding["webui_controller_id"],
                                              "generation": binding["generation"], "connectivity": self.store.identity()["connection_state"],

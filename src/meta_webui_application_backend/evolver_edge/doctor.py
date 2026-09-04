@@ -69,7 +69,7 @@ def doctor_report(
 
     connection = identity.get("connection_state", "unknown")
     if connection == "recovery_required":
-        checks.append(_check("recovery_state", "FAIL", "recovery_required; inspect evolverctl recovery before resuming"))
+        checks.append(_check("recovery_state", "FAIL", "recovery_required; inspect evoctl recovery before resuming"))
     elif connection == "orphaned":
         checks.append(_check("recovery_state", "WARN", "orphaned; local execution remains authoritative until reconciliation"))
     else:
