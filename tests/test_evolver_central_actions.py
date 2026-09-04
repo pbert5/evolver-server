@@ -39,6 +39,24 @@ def test_adapter_covers_projections_enrollment_and_unknown_actions(tmp_path):
         raise AssertionError("unknown actions must not be silently accepted")
 
 
+def test_runs_projection_filters_is_bounded_and_redacts_nested_secrets(tmp_path):
+    adapter, _ = _adapter(tmp_path)
+    state_path = evolver_controller.state_path(tmp_path)
+    state = evolver_controller._read(state_path)
+    state["controllers"]["edge-a"]["recovery_summary"] = {"runs": [
+        {"id": "run-1", "state": "paused", "credential": "secret", "metadata": {"api_token": "secret"}},
+        {"id": "run-2", "state": "running"},
+    ]}
+    evolver_controller._write(state_path, state)
+    status, result = adapter.dispatch("evolver.runs.list", {"state": "paused", "limit": 1})
+    assert status == HTTPStatus.OK
+    assert [run["id"] for run in result["runs"]] == ["run-1"]
+    assert result["runs"][0]["credential"] == "<redacted>"
+    assert result["runs"][0]["metadata"]["api_token"] == "<redacted>"
+    status, _ = adapter.dispatch("evolver.runs.list", {"limit": 501})
+    assert status == HTTPStatus.BAD_REQUEST
+
+
 def test_adapter_preserves_authorization_and_queued_command_semantics(tmp_path):
     adapter, _ = _adapter(tmp_path)
     denied, _ = adapter.dispatch("refresh", {"controller_id": "edge-a"})

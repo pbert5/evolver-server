@@ -98,7 +98,8 @@ def dispatch(action: str, parameters: Mapping[str, Any] | None = None, *,
     if action in {"instruments", "evolver.instruments"}:
         return evolver_controller.instruments(instrument_id=params.get("instrument_id"), state_root=state_root)
     if action in {"runs", "evolver.runs"}:
-        return evolver_controller.runs(run_id=params.get("run_id"), state_root=state_root)
+        return evolver_controller.runs(run_id=params.get("run_id"), controller_id=params.get("controller_id"),
+                                       state_filter=params.get("state"), limit=params.get("limit", 500), state_root=state_root)
     if action in {"commands", "command", "evolver.commands"}:
         return evolver_controller.command_projection(str(params.get("controller_id", "")), params.get("command_id"), state_root=state_root)
     if action in {"measurements", "telemetry", "activities", "events", "evidence", "logs"}:

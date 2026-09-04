@@ -37,6 +37,7 @@ STATE_ROOT_ENV = "META_WEBUI_EVOLVER_STATE_ROOT"
 DEFAULT_TOKEN_TTL_SECONDS = 15 * 60
 MAX_SYNC_BATCHES = 20
 MAX_SYNC_RECORDS_PER_BATCH = 100
+MAX_RUN_PROJECTION = 500
 _LOCK = threading.RLock()
 _COMMAND_CONDITION = threading.Condition(_LOCK)
 _STATE_BACKENDS: dict[int, tuple[CentralControllerStore, int]] = {}
@@ -2365,24 +2366,33 @@ def runs(*, run_id: str | None = None, state_root: Path | None = None) -> tuple[
     """
     with _LOCK:
         state = _state(state_path(state_root))
+        if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= MAX_RUN_PROJECTION:
+            return HTTPStatus.BAD_REQUEST, _error(f"limit must be an integer between 1 and {MAX_RUN_PROJECTION}")
+        if controller_id is not None and not isinstance(state["controllers"].get(controller_id), dict):
+            return HTTPStatus.NOT_FOUND, _error("controller not found", "NotFound", state)
         projected: list[dict[str, Any]] = []
-        for controller_id, controller in state["controllers"].items():
+        for current_controller_id, controller in state["controllers"].items():
+            if controller_id is not None and current_controller_id != controller_id:
+                continue
             if not isinstance(controller, dict):
                 continue
             summary = controller.get("recovery_summary") or controller.get("recovery_manifest") or {}
             for run in summary.get("runs", []) if isinstance(summary, dict) else []:
                 if isinstance(run, dict):
-                    public = copy.deepcopy(run)
-                    public["controller_id"] = controller_id
+                    public = _public_run(run)
+                    public["controller_id"] = current_controller_id
                     public["connection_state"] = controller.get("connection_state")
+                    if state_filter is not None and public.get("state") != state_filter:
+                        continue
                     projected.append(public)
+        projected = projected[-limit:]
         if run_id is not None:
             found = next((run for run in projected if run.get("id") == run_id), None)
             if found is not None:
                 owner = next((controller for controller in state["controllers"].values() if isinstance(controller, dict) and controller.get("id") == found.get("controller_id")), None)
                 if isinstance(owner, dict):
-                    found["events"] = [copy.deepcopy(item) for item in owner.get("events", []) if isinstance(item, dict) and item.get("run_id") == run_id][-500:]
-                    found["telemetry"] = [copy.deepcopy(item) for item in owner.get("telemetry", []) if isinstance(item, dict) and (item.get("run_id") == run_id or str(item.get("stream_id", "")).startswith(f"{run_id}:"))][-500:]
+                    found["events"] = [_public_run(item) for item in owner.get("events", []) if isinstance(item, dict) and item.get("run_id") == run_id][-limit:]
+                    found["telemetry"] = [_public_run(item) for item in owner.get("telemetry", []) if isinstance(item, dict) and (item.get("run_id") == run_id or str(item.get("stream_id", "")).startswith(f"{run_id}:"))][-limit:]
                     found["execution_evidence"] = {"source": "edge_summary", "steps": found.get("steps", found.get("completed_steps")), "legacy_runner": not bool(found.get("steps") or found.get("completed_steps"))}
             return (HTTPStatus.OK, {"run": found, "webui_controller": _response_identity(state)}) if found else (HTTPStatus.NOT_FOUND, _error("run not found", "NotFound", state))
         return HTTPStatus.OK, {"runs": projected, "webui_controller": _response_identity(state)}

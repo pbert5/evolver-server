@@ -11,7 +11,7 @@ import json
 import os
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 from typing import Any
 from urllib.parse import urlparse
 
@@ -91,6 +91,27 @@ class EvolverControlHandler(BaseHTTPRequestHandler):
                     return
             action_id, path_parameters = projected
             parameters = dict(path_parameters)
+            if method == "GET":
+                # GET action options are query parameters; retain the catalog's
+                # typed validation instead of accepting arbitrary query data.
+                for name, values in parse_qs(parsed.query, keep_blank_values=True).items():
+                    if values:
+                        value: Any = values[-1]
+                        spec = contract.operator_actions()[action_id].get("parameters", {}).get(name, {})
+                        kind = spec.get("type") if isinstance(spec, dict) else None
+                        try:
+                            if kind == "integer":
+                                value = int(value)
+                            elif kind == "number":
+                                value = float(value)
+                            elif kind == "boolean":
+                                value = value.lower() in {"1", "true", "yes", "on"}
+                            elif kind in {"json", "object", "array"}:
+                                value = json.loads(value)
+                        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                            self._send(HTTPStatus.BAD_REQUEST, {"error": f"invalid query parameter {name}: {exc}", "kind": "BadRequest"})
+                            return
+                        parameters[name] = value
             if isinstance(body, dict):
                 parameters.update(body)
             invalid = contract.validate_parameters(action_id, parameters)
