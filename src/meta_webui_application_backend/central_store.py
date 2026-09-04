@@ -14,6 +14,8 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
+from meta_webui_application_backend.evolver_history import payload_digest
+
 
 class CentralStoreConflict(RuntimeError):
     """Another WebUI worker changed central state during this operation."""
@@ -88,6 +90,7 @@ class PostgresCentralControllerStore(CentralControllerStore):
         for controller_id, item in state.get("controllers", {}).items():
             if not isinstance(item, dict): continue
             binding = item.get("binding", {})
+            generation = binding.get("controller_generation")
             cur.execute("INSERT INTO evolver.controller_projections(controller_id, public_key_fingerprint, connection_state, last_sync_at, event_cursors, telemetry_cursors, projection) VALUES (%s,%s,%s,%s::timestamptz,%s::jsonb,%s::jsonb,%s::jsonb)", (controller_id, item.get("public_key_fingerprint"), item.get("connection_state"), item.get("last_sync_at"), json.dumps(item.get("event_cursors", {})), json.dumps(item.get("telemetry_cursors", {})), json.dumps(item)))
             cur.execute("INSERT INTO evolver.controller_credentials(controller_id, credential_digest) VALUES (%s,%s)", (controller_id, item.get("credential_digest")))
             cur.execute("INSERT INTO evolver.controller_bindings(controller_id, webui_controller_id, generation, server_url, status, bound_at) VALUES (%s,%s,%s,%s,%s,%s::timestamptz)", (controller_id, binding.get("webui_controller_id"), binding.get("controller_generation"), binding.get("server_url"), binding.get("status"), binding.get("bound_at")))
@@ -97,6 +100,28 @@ class PostgresCentralControllerStore(CentralControllerStore):
                 if isinstance(acknowledgement, dict) and acknowledgement.get("command_id"):
                     cur.execute("INSERT INTO evolver.command_acknowledgements(command_id, controller_id, acknowledgement) VALUES (%s,%s,%s::jsonb)", (acknowledgement["command_id"], controller_id, json.dumps(acknowledgement)))
             if item.get("recovery_manifest") is not None: cur.execute("INSERT INTO evolver.recovery_metadata(controller_id, manifest, summary) VALUES (%s,%s::jsonb,%s::jsonb)", (controller_id, json.dumps(item.get("recovery_manifest")), json.dumps(item.get("recovery_summary"))))
+            # Append normalized edge facts separately from the replaceable
+            # controller projection.  Invalid legacy records remain in the
+            # compatibility document but cannot become durable history.
+            if isinstance(generation, int) and generation > 0:
+                for event in item.get("events", []):
+                    if not isinstance(event, dict) or not isinstance(event.get("run_id"), str) or not isinstance(event.get("sequence"), int) or event["sequence"] <= 0:
+                        continue
+                    payload = event.get("payload") if isinstance(event.get("payload"), dict) else event
+                    digest = payload_digest(payload)
+                    cur.execute("INSERT INTO evolver.controller_event_history(controller_id, controller_generation, run_id, sequence, event_id, event_type, occurred_at, payload, payload_digest) VALUES (%s,%s,%s,%s,%s,%s,%s::timestamptz,%s::jsonb,%s) ON CONFLICT (controller_id, controller_generation, run_id, sequence) DO NOTHING", (controller_id, generation, event["run_id"], event["sequence"], event.get("event_id"), event.get("event_type", event.get("type", "unknown")), event.get("occurred_at", event.get("at")), json.dumps(payload), digest))
+                    cur.execute("SELECT payload_digest FROM evolver.controller_event_history WHERE controller_id=%s AND controller_generation=%s AND run_id=%s AND sequence=%s", (controller_id, generation, event["run_id"], event["sequence"]))
+                    if cur.fetchone()["payload_digest"] != digest:
+                        raise CentralStoreConflict("event sequence conflicts with durable central record")
+                for record in item.get("telemetry", []):
+                    if not isinstance(record, dict) or not isinstance(record.get("stream_id"), str) or not isinstance(record.get("sequence"), int) or record["sequence"] <= 0:
+                        continue
+                    payload = record.get("payload") if isinstance(record.get("payload"), dict) else record
+                    digest = payload_digest(payload)
+                    cur.execute("INSERT INTO evolver.controller_telemetry_history(controller_id, controller_generation, stream_id, sequence, instrument_id, vial_position_id, captured_at, metric, value, unit, payload, payload_digest) VALUES (%s,%s,%s,%s,%s,%s,%s::timestamptz,%s,%s,%s,%s::jsonb,%s) ON CONFLICT (controller_id, controller_generation, stream_id, sequence) DO NOTHING", (controller_id, generation, record["stream_id"], record["sequence"], record.get("instrument_id"), record.get("vial_position_id"), record.get("captured_at", record.get("timestamp", record.get("at"))), record.get("metric"), record.get("value"), record.get("unit"), json.dumps(payload), digest))
+                    cur.execute("SELECT payload_digest FROM evolver.controller_telemetry_history WHERE controller_id=%s AND controller_generation=%s AND stream_id=%s AND sequence=%s", (controller_id, generation, record["stream_id"], record["sequence"]))
+                    if cur.fetchone()["payload_digest"] != digest:
+                        raise CentralStoreConflict("telemetry sequence conflicts with durable central record")
         for controller_id, commands in state.get("commands", {}).items():
             for command in commands if isinstance(commands, list) else []:
                 if not isinstance(command, dict): continue

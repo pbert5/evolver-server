@@ -25,3 +25,5 @@ database:
       path: applications/deployment/databases/postgres/migrations/0024_evolver_component_calibration_targets.sql
     - id: 0025_runtime_provenance
       path: applications/deployment/databases/postgres/migrations/0025_runtime_provenance.sql
+    - id: 0026_evolver_normalized_history
+      path: applications/deployment/databases/postgres/migrations/0026_evolver_normalized_history.sql
