@@ -16,6 +16,8 @@ from typing import Any
 from urllib.parse import urlparse
 
 from .. import evolver_controller
+from . import contract
+from .actions import dispatch as dispatch_action
 
 
 CONTROL_SHARED_SECRET_ENV = "META_WEBUI_EVOLVER_CONTROL_SHARED_SECRET"
@@ -68,6 +70,35 @@ class EvolverControlHandler(BaseHTTPRequestHandler):
                 self._send(HTTPStatus.OK, {"status": "ok", "repository": "postgres", "webui_controller": payload["webui_controller"]})
             except Exception as exc:  # Health must describe, not hide, DB failure.
                 self._send(HTTPStatus.SERVICE_UNAVAILABLE, {"status": "unavailable", "error": str(exc)})
+            return
+        if method == "GET" and path == "/api/actions":
+            try:
+                self._send(HTTPStatus.OK, contract.manifest())
+            except (OSError, ValueError, json.JSONDecodeError) as exc:
+                self._send(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "action contract unavailable", "kind": "ContractUnavailable"})
+            return
+        projected = contract.match(method, path)
+        if projected is not None:
+            try:
+                body = self._body() if method != "GET" else None
+            except ValueError as exc:
+                self._send(HTTPStatus.BAD_REQUEST, {"error": str(exc), "kind": "BadRequest"})
+                return
+            if isinstance(body, dict) and isinstance(body.get("action"), str):
+                projected = contract.match(method, path, body["action"])
+                if projected is None:
+                    self._send(HTTPStatus.BAD_REQUEST, {"error": "action does not match route", "kind": "BadRequest"})
+                    return
+            action_id, path_parameters = projected
+            parameters = dict(path_parameters)
+            if isinstance(body, dict):
+                parameters.update(body)
+            invalid = contract.validate_parameters(action_id, parameters)
+            if invalid:
+                self._send(HTTPStatus.BAD_REQUEST, {"error": invalid, "kind": "BadRequest"})
+                return
+            status, payload = dispatch_action(action_id, parameters, operator=proxy_operator(self.headers))
+            self._send(status, payload)
             return
         if not evolver_controller.handles(path):
             self._send(HTTPStatus.NOT_FOUND, {"error": "not found", "kind": "NotFound"})

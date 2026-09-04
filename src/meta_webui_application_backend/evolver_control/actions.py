@@ -19,6 +19,41 @@ class UnknownAction(ValueError):
     """Raised when a caller supplies an action outside this adapter contract."""
 
 
+# Stable catalog ids are the trusted adapter registry.  Values are translated
+# to existing domain seams below; no catalog string is imported or evaluated.
+ACTION_ADAPTERS = {
+    "evolver.edge.status": "controllers",
+    "evolver.edge.controllers": "controllers",
+    "evolver.edge.instruments": "instruments",
+    "evolver.edge.runs": "runs",
+    "evolver.controllers.list": "controllers",
+    "evolver.controllers.show": "controllers",
+    "evolver.controllers.freshness": "controller_freshness",
+    "evolver.controllers.add": "enrollment_token",
+    "evolver.controllers.refresh": "refresh",
+    "evolver.controllers.rescan": "hardware_rescan",
+    "evolver.controllers.archive": "archive_controller",
+    "evolver.controllers.restore": "restore_controller",
+    "evolver.controllers.release.set": "desired_release",
+    "evolver.controllers.commands.list": "commands",
+    "evolver.controllers.commands.show": "commands",
+    "evolver.controllers.recovery.request": "recovery",
+    "evolver.controllers.recovery.status": "recovery",
+    "evolver.controllers.recovery.diff": "recovery_diff",
+    "evolver.instruments.list": "instruments",
+    "evolver.instruments.show": "instruments",
+    "evolver.runs.list": "runs",
+    "evolver.runs.show": "runs",
+    "evolver.runs.pause": "pause_run",
+    "evolver.runs.resume": "resume_run",
+    "evolver.runs.stop": "stop_run",
+    "evolver.experiments.validate": "experiment_validate",
+    "evolver.experiments.describe": "experiment_describe",
+    "evolver.experiments.plan": "experiment_plan",
+    "evolver.release.build": "release_build",
+}
+
+
 def _body(parameters: Mapping[str, Any]) -> dict[str, Any]:
     return dict(parameters)
 
@@ -41,6 +76,7 @@ def dispatch(action: str, parameters: Mapping[str, Any] | None = None, *,
     """
     if not isinstance(action, str) or not action:
         raise UnknownAction("action must be a non-empty string")
+    action = ACTION_ADAPTERS.get(action, action)
     params = parameters if isinstance(parameters, Mapping) else {}
     body = _body(params)
 
@@ -131,6 +167,25 @@ def dispatch(action: str, parameters: Mapping[str, Any] | None = None, *,
             return denied
         return evolver_controller.import_recovery_snapshot(str(controller_id), body, state_root=state_root)
 
+    if action == "experiment_validate":
+        if not isinstance(body.get("definition"), dict):
+            return HTTPStatus.BAD_REQUEST, {"error": "definition must be a JSON object", "kind": "BadRequest"}
+        from ..experiment_actions import validate_experiment
+        return HTTPStatus.OK, validate_experiment(body["definition"], body.get("selected_calibration_artifacts", []), resolved_at=str(body.get("resolved_at", "")))
+    if action == "experiment_describe":
+        if not isinstance(body.get("definition"), dict):
+            return HTTPStatus.BAD_REQUEST, {"error": "definition must be a JSON object", "kind": "BadRequest"}
+        from ..experiment_actions import describe_experiment
+        return HTTPStatus.OK, describe_experiment(body["definition"])
+    if action == "experiment_plan":
+        if not isinstance(body.get("bundle"), dict):
+            return HTTPStatus.BAD_REQUEST, {"error": "bundle must be a JSON object", "kind": "BadRequest"}
+        from ..experiment_actions import plan_experiment
+        return HTTPStatus.OK, plan_experiment(body["bundle"], state=body.get("state"), run_id=body.get("run_id"), target_temperature=body.get("target_temperature"), required_capabilities=body.get("required_capabilities"))
+    if action == "release_build":
+        from ..server_release_actions import release_build
+        return release_build(body, operator=operator)
+
     raise UnknownAction(f"unknown central eVOLVER action: {action}")
 
 
@@ -143,4 +198,3 @@ class CentralEvolverActionAdapter:
     def dispatch(self, action: str, parameters: Mapping[str, Any] | None = None, *,
                  operator: evolver_controller.OperatorIdentity | None = None) -> tuple[HTTPStatus, dict[str, Any]]:
         return dispatch(action, parameters, operator=operator, state_root=self.state_root)
-
