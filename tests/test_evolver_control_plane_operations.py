@@ -96,6 +96,32 @@ def test_manual_commands_are_fenced_when_their_lease_is_revoked(tmp_path):
     assert status == HTTPStatus.OK and all(item["command_id"] != command["command_id"] for item in response["commands"])
 
 
+def test_machine_route_dispatch_preserves_persistence_seam_and_lease_methods(tmp_path):
+    status, token = evolver_controller.create_enrollment_token(server_url="https://central", state_root=tmp_path)
+    assert status == HTTPStatus.CREATED
+    status, enrolled = evolver_controller.dispatch(
+        "POST", "/api/evolver/controllers/enroll",
+        {"controller_id": "edge-a", "enrollment_token": token["enrollment_token"]}, state_root=tmp_path,
+    )
+    assert status == HTTPStatus.CREATED
+    status, sync = evolver_controller.dispatch(
+        "POST", "/api/evolver/controllers/sync",
+        {"controller_id": "edge-a", "controller_generation": 1},
+        authorization=f"Bearer {enrolled['credential']}", state_root=tmp_path,
+    )
+    assert status == HTTPStatus.OK and sync["accepted_generation"] == 1
+    operator = _operator("operate_run")
+    status, _ = evolver_controller.dispatch(
+        "PUT", "/api/evolver/controllers/edge-a/manual-control-lease", {}, operator=operator, state_root=tmp_path,
+    )
+    assert status == HTTPStatus.METHOD_NOT_ALLOWED
+    status, invalid = evolver_controller.dispatch(
+        "POST", "/api/evolver/controllers/edge-a/manual-command",
+        {"operation": "safe_stop", "idempotency_key": 42}, operator=operator, state_root=tmp_path,
+    )
+    assert status == HTTPStatus.BAD_REQUEST and invalid["kind"] == "BadRequest"
+
+
 def test_rollback_is_authorized_idempotent_and_generation_fenced(tmp_path):
     _enrolled(tmp_path)
     state_path = evolver_controller.state_path(tmp_path)

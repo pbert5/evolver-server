@@ -2047,6 +2047,9 @@ def manual_control_command(controller_id: str, body: Any, *, operator: OperatorI
         return denied
     if not isinstance(body, dict) or body.get("operation") not in {"safe_stop", "stir_pulse", "heater_pulse", "pump_pulse"}:
         return HTTPStatus.BAD_REQUEST, _error("operation must be safe_stop, stir_pulse, heater_pulse, or pump_pulse", "InvalidManualOperation")
+    idempotency_key = body.get("idempotency_key")
+    if idempotency_key is not None and (not isinstance(idempotency_key, str) or not idempotency_key.strip()):
+        return HTTPStatus.BAD_REQUEST, _error("idempotency_key must be a non-empty string")
     operation = body["operation"]
     with _LOCK:
         path, state = state_path(state_root), _state(state_path(state_root))
@@ -2077,7 +2080,7 @@ def manual_control_command(controller_id: str, body: Any, *, operator: OperatorI
             return HTTPStatus.BAD_REQUEST, _error("ttl_seconds must be between 1 and 60", "InvalidCommandTTL", state)
         command_kind = "emergency_safe_stop" if operation == "safe_stop" else operation
         command = _operator_command(state, controller_id, command_kind, operator=operator,
-                                     idempotency_key=body.get("idempotency_key"), lease=lease if operation != "safe_stop" else None,
+                                     idempotency_key=idempotency_key, lease=lease if operation != "safe_stop" else None,
                                      fields={"instrument_id": body.get("instrument_id"), "target": body.get("target", {}),
                                              "operation": operation, "parameters": {key: body[key] for key in ("channel", "duration_ms", "level") if key in body},
                                              "expires_at": _iso(_now() + timedelta(seconds=ttl_seconds))})
@@ -2604,10 +2607,10 @@ def dispatch(method: str, path: str, body: Any, *, query: str = "", authorizatio
         return create_enrollment_token(server_url=body.get("server_url", ""), ttl_seconds=body.get("ttl_seconds", DEFAULT_TOKEN_TTL_SECONDS),
                                        purpose=body.get("purpose", "enrollment"), release_binding=body.get("release_binding"))
     if path == "/api/evolver/controllers/enroll":
-        return enroll(body) if method == "POST" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
+        return enroll(body, state_root=state_root) if method == "POST" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
     if path == "/api/evolver/controllers/handoff/release":
         credential = authorization.removeprefix("Bearer ") if isinstance(authorization, str) and authorization.startswith("Bearer ") else None
-        return release_handoff(body, credential=credential) if method == "POST" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
+        return release_handoff(body, credential=credential, state_root=state_root) if method == "POST" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
     if path == "/api/evolver/controllers/commands/wait":
         credential = authorization.removeprefix("Bearer ") if isinstance(authorization, str) and authorization.startswith("Bearer ") else None
         controller_id = body.get("controller_id") if isinstance(body, dict) else None
@@ -2616,7 +2619,7 @@ def dispatch(method: str, path: str, body: Any, *, query: str = "", authorizatio
         return wait_for_command(controller_id, body, credential=credential, state_root=state_root) if method == "POST" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
     if path == "/api/evolver/controllers/sync":
         credential = authorization.removeprefix("Bearer ") if isinstance(authorization, str) and authorization.startswith("Bearer ") else None
-        return sync(body, credential=credential) if method == "POST" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
+        return sync(body, credential=credential, state_root=state_root) if method == "POST" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
     if path.startswith("/api/evolver/controllers/"):
         suffix = path.removeprefix("/api/evolver/controllers/")
         if "/commands" in suffix and method == "GET":
@@ -2645,7 +2648,12 @@ def dispatch(method: str, path: str, body: Any, *, query: str = "", authorizatio
             return archive_controller(controller_id, operator=operator, state_root=state_root, restore=restore) if method == "POST" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
         if suffix.endswith("/manual-control-lease"):
             controller_id = suffix.removesuffix("/manual-control-lease").strip("/")
-            action = "get" if method == "GET" else "acquire"
+            if method == "GET":
+                action = "get"
+            elif method == "POST":
+                action = "acquire"
+            else:
+                return HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed")
             return manual_control_lease(controller_id, body, operator=operator, action=action, state_root=state_root)
         if suffix.endswith("/manual-control-lease/revoke") or suffix.endswith("/manual-control-lease/emergency-release"):
             emergency = suffix.endswith("/emergency-release")
