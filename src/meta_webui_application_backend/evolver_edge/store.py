@@ -427,10 +427,10 @@ class EdgeStore:
         """
         payload = dict(artifact)
         artifact_id, supplied = payload.get("id"), payload.get("artifact_digest")
-        required = (artifact_id, supplied, payload.get("instrument_id"), payload.get("vial_position_id"),
+        required = (artifact_id, supplied, payload.get("instrument_id"),
                     payload.get("calibration_type"), payload.get("method"), payload.get("method_version"))
         if not all(isinstance(value, str) and value for value in required):
-            raise ImmutableBundleError("calibration artifact requires id, digest, instrument, vial position, type, and method")
+            raise ImmutableBundleError("calibration artifact requires id, digest, instrument, type, and method")
         try:
             actual_digest = calibration_artifact_digest(payload)
         except (TypeError, ValueError) as error:

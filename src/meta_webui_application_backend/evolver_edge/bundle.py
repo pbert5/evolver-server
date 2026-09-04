@@ -11,7 +11,7 @@ import json
 from typing import Any, Mapping
 
 Json = dict[str, Any]
-EXPERIMENT_PURPOSES = frozenset({"research", "test_fixture", "commissioning"})
+EXPERIMENT_PURPOSES = frozenset({"research", "test_fixture", "commissioning", "calibration"})
 
 
 class BundleResolutionError(ValueError):
