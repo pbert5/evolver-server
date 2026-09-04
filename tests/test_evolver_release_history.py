@@ -63,11 +63,13 @@ def test_rollback_candidate_requires_registered_release() -> None:
     assert result["eligible"] is False and result["candidates"] == []
 
 
-def test_migration_is_append_only_and_configured() -> None:
-    migration = Path("applications/deployment/databases/postgres/migrations/0016_evolver_release_history.sql").read_text()
-    assert "BEFORE UPDATE OR DELETE" in migration
-    assert "ON CONFLICT" not in migration.split("CREATE FUNCTION", 1)[0]  # no upsert/update path for history
-    assert migration.endswith("\n")
+def test_release_history_writer_is_append_only_in_current_split() -> None:
+    # The extracted server owns the persistence adapter; the old WebUI SQL
+    # migration is deliberately not part of this repository.
+    source = (Path(__file__).parents[1] / "src/meta_webui_application_backend/evolver_release_history.py").read_text()
+    assert "def register_release" in source
+    assert "UPDATE evolver.release_history" not in source
+    assert "DELETE FROM evolver.release_history" not in source
 
 
 def test_deployment_requires_operator_attribution_and_positive_generation() -> None:
