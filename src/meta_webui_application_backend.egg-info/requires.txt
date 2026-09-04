@@ -1,5 +1,0 @@
-meta-webui-server-runtime==0.1.0
-meta-webui-config-compiler==0.1.0
-meta-webui-ui-runtime-textual==0.1.0
-pyserial==3.5
-zstandard==0.25.0
