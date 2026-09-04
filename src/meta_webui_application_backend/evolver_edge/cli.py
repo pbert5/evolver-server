@@ -11,10 +11,9 @@ from typing import Any
 from .bundle import resolve_bundle
 from .store import EdgeStore, EdgeStoreError, canonical_digest
 from .sync import SyncClient
-from .install import (detect_backend, inspect_installation, repair_installation, status_json, systemd_unit,
-                      uninstall_installation)
+from .install import inspect_installation
 from .lifecycle import plan_lifecycle
-from .update import NativePackageBackend, NixUpdateBackend, OCIUpdateBackend, UpdateManager, UpdatePolicy, record_installed_release
+from .update import ComposeUpdateBackend, UpdateManager, UpdatePolicy, record_installed_release
 from .doctor import doctor_report
 
 
@@ -118,18 +117,11 @@ def build_parser() -> argparse.ArgumentParser:
     show = instrument_sub.add_parser("show"); show.add_argument("instrument_id")
     tui = commands.add_parser("tui", help="run the local configured Textual operator UI")
     tui.add_argument("--page", choices=("overview", "controllers", "instruments", "runs", "recovery", "maintenance"), default="overview")
-    install = commands.add_parser("install-status"); install.add_argument("--unit", action="store_true")
     update = commands.add_parser("update", help="inspect or apply a local controller software release")
     update_sub = update.add_subparsers(dest="update_command", required=True)
     update_sub.add_parser("status")
     check = update_sub.add_parser("check"); check.add_argument("release")
     apply = update_sub.add_parser("apply"); apply.add_argument("release")
-    uninstall = commands.add_parser("uninstall", help="remove eVOLVER software while preserving state")
-    uninstall.add_argument("--purge", action="store_true", help="also delete local controller state (destructive)")
-    uninstall.add_argument("--yes", action="store_true", help="confirm destructive maintenance in automation")
-    uninstall.add_argument("--force-active", action="store_true", help="explicitly override active-run protection")
-    uninstall.add_argument("--operator", help="operator attribution for the lifecycle audit")
-    commands.add_parser("repair", help="restore owned services and links from the current release")
     simulator = commands.add_parser("simulator"); sim_sub = simulator.add_subparsers(dest="simulator_command", required=True)
     start = sim_sub.add_parser("start"); start.add_argument("--instruments", type=int, default=1)
     create = sim_sub.add_parser("create-run", help="create a safe simulated run from a declarative plan")
@@ -255,8 +247,6 @@ def main(argv: list[str] | None = None) -> int:
             return 2 if report["summary"]["FAIL"] else 0
         if args.command == "runs": _emit(store.list_runs()); return 0
         if args.command == "binding": _emit(store.binding()); return 0
-        if args.command == "install-status":
-            _emit(systemd_unit() if args.unit else status_json(store.root)); return 0
         if args.command == "update":
             manager = UpdateManager(store, _update_backend(), policy=_update_policy())
             if args.update_command == "status":
@@ -384,14 +374,7 @@ def _update_policy() -> UpdatePolicy:
 
 
 def _update_backend():
-    backend = detect_backend()
-    if backend == "nix" and os.environ.get("EVOLVER_DEVELOPER_MODE") == "true" and os.environ.get("EVOLVER_NIX_FLAKE"):
-        return NixUpdateBackend(flake=os.environ["EVOLVER_NIX_FLAKE"])
-    if backend == "oci":
-        return OCIUpdateBackend(image=os.environ.get("EVOLVER_OCI_IMAGE", "ghcr.io/pbert5/evolver-controller"),
-                                runtime="podman" if os.environ.get("EVOLVER_OCI_RUNTIME") is None else os.environ["EVOLVER_OCI_RUNTIME"])
-    return NativePackageBackend(package=os.environ.get("EVOLVER_NATIVE_PACKAGE", "evolver-controller"),
-                                manager=os.environ.get("EVOLVER_NATIVE_PACKAGE_MANAGER", "apt-get"))
+    return ComposeUpdateBackend(compose_file=os.environ.get("EVOLVER_COMPOSE_FILE"))
 
 
 if __name__ == "__main__":  # pragma: no cover - module entry point
