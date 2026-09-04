@@ -18,7 +18,16 @@ def catalog_path() -> Path:
     configured = __import__("os").environ.get("EVOLVER_ACTION_CATALOG")
     if configured:
         return Path(configured)
-    return Path(__file__).resolve().parents[5] / "metactl" / "applications" / "evolver" / "actions.json"
+    relative_catalog = Path("metactl") / "applications" / "evolver" / "actions.json"
+    source_path = Path(__file__).resolve()
+    for checkout_root in source_path.parents:
+        candidate = checkout_root / relative_catalog
+        if candidate.is_file():
+            return candidate
+    # Keep the failure actionable if a packaged/standalone checkout omitted
+    # the canonical catalog.  The explicit environment override above is the
+    # supported deployment escape hatch for that layout.
+    return source_path.parents[3] / relative_catalog
 
 
 def operator_actions() -> dict[str, dict[str, Any]]:
