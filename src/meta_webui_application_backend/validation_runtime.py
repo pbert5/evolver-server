@@ -1,21 +1,13 @@
 """Side-effect-free generic run runtime for temperature hold and cycling."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from enum import StrEnum
+from dataclasses import dataclass
 from math import isfinite
 from statistics import mean
-from typing import Any, Generic, Mapping, Sequence, TypeVar
+from typing import Any, Mapping, Sequence
 
 from .validation_artifact import (AcceptanceCriterion, CriterionOutcome, CriterionResult,
                                   Comparator, ValidationArtifact, ValidationOutcome)
-
-
-class RunState(StrEnum):
-    READY = "ready"
-    RUNNING = "running"
-    COMPLETE = "complete"
-    FAILED = "failed"
 
 
 @dataclass(frozen=True)
@@ -39,65 +31,31 @@ class TemperatureCycle:
     cycles: int = 1
 
     def __post_init__(self) -> None:
-        if not self.targets or any(not isfinite(target) for target in self.targets):
+        if not isinstance(self.targets, tuple) or not self.targets or any(not isfinite(target) for target in self.targets):
             raise ValueError("temperature cycle requires finite targets")
         if not isfinite(self.tolerance) or self.tolerance < 0:
             raise ValueError("temperature cycle requires a non-negative tolerance")
-        if not isfinite(self.hold_seconds) or self.hold_seconds <= 0 or self.cycles <= 0:
+        if not isfinite(self.hold_seconds) or self.hold_seconds <= 0 or not isinstance(self.cycles, int) or isinstance(self.cycles, bool) or self.cycles <= 0:
             raise ValueError("cycle hold_seconds and cycles must be positive")
 
 
-ProtocolT = TypeVar("ProtocolT", TemperatureHold, TemperatureCycle)
+def temperature_phase(protocol: TemperatureHold | TemperatureCycle, elapsed_seconds: float) -> dict[str, Any]:
+    """Return the phase for a durable run projection without mutating it.
 
-
-@dataclass
-class ExperimentRun(Generic[ProtocolT]):
-    """Generic clock-driven run; the protocol only supplies target phases."""
-    run_id: str
-    protocol: ProtocolT
-    elapsed_seconds: float = 0.0
-    state: RunState = RunState.READY
-    samples: list[float] = field(default_factory=list)
-    phase_index: int = 0
-    completed_cycles: int = 0
-
-    def start(self) -> None:
-        if self.state is not RunState.READY:
-            raise RuntimeError("run can only be started once")
-        self.state = RunState.RUNNING
-
-    @property
-    def target(self) -> float:
-        if isinstance(self.protocol, TemperatureHold):
-            return self.protocol.target
-        return self.protocol.targets[self.phase_index % len(self.protocol.targets)]
-
-    @property
-    def tolerance(self) -> float:
-        return self.protocol.tolerance
-
-    def record_temperature(self, value: float, elapsed_seconds: float) -> None:
-        if self.state is not RunState.RUNNING:
-            raise RuntimeError("temperature can only be recorded while running")
-        if isinstance(value, bool) or not isfinite(value) or elapsed_seconds < self.elapsed_seconds:
-            raise ValueError("temperature and elapsed_seconds must be finite and monotonic")
-        self.elapsed_seconds = elapsed_seconds
-        self.samples.append(float(value))
-        if isinstance(self.protocol, TemperatureHold):
-            if elapsed_seconds >= self.protocol.duration_seconds:
-                self.state = RunState.COMPLETE
-            return
-        if elapsed_seconds >= (self.completed_cycles * len(self.protocol.targets) + self.phase_index + 1) * self.protocol.hold_seconds:
-            self.phase_index += 1
-            if self.phase_index == len(self.protocol.targets):
-                self.phase_index = 0
-                self.completed_cycles += 1
-            if self.completed_cycles >= self.protocol.cycles:
-                self.state = RunState.COMPLETE
-
-    def fail(self) -> None:
-        if self.state is RunState.RUNNING:
-            self.state = RunState.FAILED
+    Lifecycle and observations belong to the edge ``ExperimentRun`` store;
+    this helper only interprets an elapsed-time value for validation/UI code.
+    """
+    if isinstance(elapsed_seconds, bool) or not isfinite(elapsed_seconds) or elapsed_seconds < 0:
+        raise ValueError("elapsed_seconds must be finite and non-negative")
+    if isinstance(protocol, TemperatureHold):
+        return {"target": protocol.target, "phase_index": 0,
+                "completed_cycles": 0, "complete": elapsed_seconds >= protocol.duration_seconds}
+    phase_count = len(protocol.targets)
+    phase_number = min(int(elapsed_seconds // protocol.hold_seconds), phase_count * protocol.cycles - 1)
+    return {"target": protocol.targets[phase_number % phase_count],
+            "phase_index": phase_number % phase_count,
+            "completed_cycles": phase_number // phase_count,
+            "complete": elapsed_seconds >= phase_count * protocol.cycles * protocol.hold_seconds}
 
 
 def _metric_value(observation: Mapping[str, Any], metric: str) -> float | None:
@@ -112,23 +70,26 @@ def _metric_value(observation: Mapping[str, Any], metric: str) -> float | None:
 
 
 def evaluate_criterion(criterion: AcceptanceCriterion, observations: Sequence[Mapping[str, Any] | float]) -> CriterionResult:
-    values = [float(item) for item in observations if isinstance(item, (int, float)) and not isinstance(item, bool)] if observations and not isinstance(observations[0], Mapping) else [_metric_value(item, criterion.metric) for item in observations]  # type: ignore[arg-type]
+    if criterion.aggregation not in {"mean", "min", "max", "last"}:
+        raise ValueError(f"unsupported aggregation: {criterion.aggregation}")
+    values = [_metric_value(item, criterion.metric) if isinstance(item, Mapping) else
+              float(item) if isinstance(item, (int, float)) and not isinstance(item, bool) else None
+              for item in observations]
     values = [value for value in values if value is not None and isfinite(value)]
     if not values:
         return CriterionResult(criterion.id, criterion.metric, CriterionOutcome.INCONCLUSIVE, reason="no observations")
-    observed = {"mean": mean(values), "min": min(values), "max": max(values), "last": values[-1]}.get(criterion.aggregation)
-    if observed is None:
-        raise ValueError(f"unsupported aggregation: {criterion.aggregation}")
-    if criterion.comparator is Comparator.BETWEEN:
+    observed = {"mean": mean(values), "min": min(values), "max": max(values), "last": values[-1]}[criterion.aggregation]
+    comparator = criterion.comparator if isinstance(criterion.comparator, Comparator) else Comparator(criterion.comparator)
+    if comparator is Comparator.BETWEEN:
         if criterion.lower_bound is None or criterion.upper_bound is None:
             raise ValueError("between requires lower_bound and upper_bound")
         passed = criterion.lower_bound <= observed <= criterion.upper_bound
     else:
         if criterion.threshold is None:
-            raise ValueError(f"{criterion.comparator.value} requires threshold")
+            raise ValueError(f"{comparator.value} requires threshold")
         passed = {Comparator.EQ: observed == criterion.threshold, Comparator.LT: observed < criterion.threshold,
                   Comparator.LTE: observed <= criterion.threshold, Comparator.GT: observed > criterion.threshold,
-                  Comparator.GTE: observed >= criterion.threshold}[criterion.comparator]
+                  Comparator.GTE: observed >= criterion.threshold}[comparator]
     return CriterionResult(criterion.id, criterion.metric, CriterionOutcome.PASS if passed else CriterionOutcome.FAIL, observed)
 
 
