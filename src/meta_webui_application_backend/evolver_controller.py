@@ -611,6 +611,7 @@ def sync(body: Any, *, credential: str | None, state_root: Path | None = None) -
         # projections, so older deployments can resume without data loss.
         controller.setdefault("events", [])
         controller.setdefault("telemetry", [])
+        controller.setdefault("history", [])
         controller.setdefault("event_cursors", {})
         controller.setdefault("telemetry_cursors", {})
         controller.setdefault("acknowledgements", [])
@@ -647,6 +648,7 @@ def sync(body: Any, *, credential: str | None, state_root: Path | None = None) -
                 _ingest_od_blank_records(state, controller_id, generation, blank_records)
             _ingest_event_batches(controller, body.get("event_batches"))
             _ingest_telemetry_batches(controller, body.get("telemetry_batches"))
+            _ingest_history_batches(controller, body.get("history_batches"), controller_id, generation)
         except ValueError as exc:
             return HTTPStatus.BAD_REQUEST, _error(str(exc), "InvalidSyncBatch", state)
         acknowledgements = body.get("command_acknowledgements")
@@ -700,6 +702,7 @@ def sync(body: Any, *, credential: str | None, state_root: Path | None = None) -
             "desired_release": controller.get("desired_release"),
             "event_cursors": copy.deepcopy(controller["event_cursors"]),
             "telemetry_cursors": copy.deepcopy(controller["telemetry_cursors"]), "reconciliation_required": False,
+            "history_projection": copy.deepcopy(controller["history"]),
         }
 
 
@@ -885,6 +888,51 @@ def _ingest_telemetry_batches(controller: dict[str, Any], batches: Any) -> None:
             if prior is None:
                 copied = copy.deepcopy(record); telemetry.append(copied); by_key[key] = copied
         controller["telemetry_cursors"][batch["stream_id"]] = _contiguous_cursor(telemetry, "stream_id", batch["stream_id"])
+
+
+def _ingest_history_batches(controller: dict[str, Any], batches: Any,
+                            controller_id: str, generation: int) -> None:
+    """Fold edge facts into an idempotent, normalized read-only timeline.
+
+    The event and telemetry projections above remain the protocol's durable
+    source facts.  This list is only a central read model: a stable fact id is
+    required, retries are no-ops, and a changed fact is a conflict rather than
+    an opportunity for central reconciliation or timestamp-based replacement.
+    """
+    if batches is None:
+        return
+    if not isinstance(batches, list) or len(batches) > MAX_SYNC_BATCHES:
+        raise ValueError("history_batches must be a bounded list")
+    history = controller["history"]
+    by_id = {item.get("fact_id"): item for item in history if isinstance(item, dict)}
+    for batch in batches:
+        if (not isinstance(batch, dict) or batch.get("fact_type") not in {"event", "telemetry"}
+                or not isinstance(batch.get("stream_id"), str) or not isinstance(batch.get("records"), list)):
+            raise ValueError("history batch requires fact_type, stream_id, and records")
+        if len(batch["records"]) > MAX_SYNC_RECORDS_PER_BATCH:
+            raise ValueError("history batch is too large")
+        for record in batch["records"]:
+            if not isinstance(record, dict) or not isinstance(record.get("fact_id"), str) or not record["fact_id"]:
+                raise ValueError("history record requires fact_id")
+            if record.get("stream_id", batch["stream_id"]) != batch["stream_id"]:
+                raise ValueError("history record stream_id differs from batch")
+            if not isinstance(record.get("sequence"), int) or record["sequence"] <= 0:
+                raise ValueError("history record requires a positive sequence")
+            normalized = {
+                "fact_id": record["fact_id"], "fact_type": batch["fact_type"],
+                "controller_id": controller_id, "controller_generation": generation,
+                "stream_id": batch["stream_id"], "sequence": record["sequence"],
+                "run_id": record.get("run_id") if batch["fact_type"] == "event" else None,
+                "occurred_at": record.get("occurred_at") if batch["fact_type"] == "event" else record.get("captured_at"),
+                "payload": copy.deepcopy(record.get("payload")), "source": "edge",
+                "authority": "edge",
+            }
+            prior = by_id.get(normalized["fact_id"])
+            if prior is not None and _canonical_json(prior) != _canonical_json(normalized):
+                raise ValueError("history fact conflicts with durable central projection")
+            if prior is None:
+                history.append(normalized)
+                by_id[normalized["fact_id"]] = normalized
 
 
 def _canonical_json(value: Any) -> str:
@@ -2358,7 +2406,23 @@ def request_recovery_manifest(controller_id: str, *, requested_by: str = "webui_
         return HTTPStatus.ACCEPTED, {"command": copy.deepcopy(command), "webui_controller": _response_identity(state)}
 
 
-def runs(*, run_id: str | None = None, state_root: Path | None = None) -> tuple[HTTPStatus, dict[str, Any]]:
+def _public_run(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Return a bounded, non-secret run projection for operator APIs."""
+    sensitive = ("credential", "password", "secret", "token", "private_key", "api_key", "authorization")
+    def clean(item: Any) -> Any:
+        if isinstance(item, Mapping):
+            return {str(key): ("<redacted>" if any(part in str(key).lower() for part in sensitive) else clean(child))
+                    for key, child in item.items()}
+        if isinstance(item, list):
+            return [clean(child) for child in item[-MAX_RUN_PROJECTION:]]
+        return item
+    result = clean(value)
+    return result if isinstance(result, dict) else {}
+
+
+def runs(*, run_id: str | None = None, controller_id: str | None = None,
+         state_filter: str | None = None, limit: int = MAX_RUN_PROJECTION,
+         state_root: Path | None = None) -> tuple[HTTPStatus, dict[str, Any]]:
     """Public, compact run projections reconstructed from edge summaries.
 
     The edge remains authoritative.  This deliberately exposes no controller

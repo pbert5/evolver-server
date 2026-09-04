@@ -118,6 +118,12 @@ def test_authenticated_sync_is_fenced_deduplicated_and_persistent(tmp_path):
         "telemetry_batches": [{"stream_id": "od", "first_sequence": 1, "last_sequence": 2, "records": [
             {"stream_id": "od", "sequence": 1, "payload": {"od": 0.1}}, {"stream_id": "od", "sequence": 2, "payload": {"od": 0.2}}]}],
         "recovery_summary": {"id": "recovery-1"},
+        "history_batches": [{"fact_type": "event", "stream_id": "run-a", "records": [
+            {"fact_id": "event-1", "run_id": "run-a", "sequence": 1,
+             "occurred_at": "2026-09-01T00:00:00Z", "payload": {"event_type": "started"}}]},
+            {"fact_type": "telemetry", "stream_id": "od", "records": [
+            {"fact_id": "telemetry:od:1", "stream_id": "od", "sequence": 1,
+             "captured_at": "2026-09-01T00:00:01Z", "payload": {"od": 0.1}}]}],
     }
     status, response = evolver_controller.sync(body, credential=enrolled["credential"], state_root=tmp_path)
     assert status == HTTPStatus.OK
@@ -130,6 +136,22 @@ def test_authenticated_sync_is_fenced_deduplicated_and_persistent(tmp_path):
     assert len(controller["events"]) == 1
     assert controller["event_cursors"] == {"run-a": 1}
     assert controller["telemetry_cursors"] == {"od": 2}
+    assert len(controller["history"]) == 2
+    assert evolver_controller.sync(body, credential=enrolled["credential"], state_root=tmp_path)[1]["history_projection"] == controller["history"]
+
+
+def test_history_replay_is_idempotent_and_changed_fact_is_conflict(tmp_path):
+    _, token = evolver_controller.create_enrollment_token(server_url="http://webui", state_root=tmp_path)
+    _, enrolled = evolver_controller.enroll({"controller_id": "edge-a", "enrollment_token": token["enrollment_token"]}, state_root=tmp_path)
+    base = {"controller_id": "edge-a", "controller_generation": 1, "history_batches": [{
+        "fact_type": "event", "stream_id": "run-a", "records": [{"fact_id": "fact-1", "run_id": "run-a", "sequence": 1, "payload": {"state": "running"}}]}]}
+    assert evolver_controller.sync(base, credential=enrolled["credential"], state_root=tmp_path)[0] == HTTPStatus.OK
+    assert evolver_controller.sync(base, credential=enrolled["credential"], state_root=tmp_path)[0] == HTTPStatus.OK
+    changed = {**base, "history_batches": [{"fact_type": "event", "stream_id": "run-a", "records": [{"fact_id": "fact-1", "run_id": "run-a", "sequence": 1, "payload": {"state": "stopped"}}]}]}
+    status, response = evolver_controller.sync(changed, credential=enrolled["credential"], state_root=tmp_path)
+    assert status == HTTPStatus.BAD_REQUEST and response["kind"] == "InvalidSyncBatch"
+    state = evolver_controller._read(evolver_controller.state_path(tmp_path))
+    assert len(state["controllers"]["edge-a"]["history"]) == 1
 
 
 def test_cursor_sync_retries_only_unacknowledged_records(tmp_path):
