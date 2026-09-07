@@ -49,6 +49,28 @@ def manifest() -> dict[str, Any]:
                         for action_id, action in operator_actions().items()]}
 
 
+def workbench_manifest() -> dict[str, Any]:
+    """Publish a complete snapshot of the catalog used by this runtime.
+
+    Preserve /api/actions for legacy consumers. No Python source, credentials,
+    or test execution capability is exposed by this read-only projection.
+    """
+    document = json.loads(catalog_path().read_text(encoding="utf-8"))
+    if not isinstance(document.get("actions"), list) or not isinstance(document.get("api"), dict):
+        raise ValueError("invalid action catalog")
+    actions = {action["id"]: action for action in document["actions"]}
+    index = document.get("deployment_index", [])
+    if len(actions) != len(document["actions"]) or set(index) != set(actions) or len(index) != len(set(index)):
+        raise ValueError("invalid action catalog index")
+    unavailable = sorted(set(document["api"]) - set(ACTION_ADAPTERS))
+    exposed = [identifier for identifier in index if identifier in document["api"] and identifier in ACTION_ADAPTERS]
+    snapshot = {"version": document["version"], "deployment_index": exposed,
+                "actions": [actions[identifier] for identifier in exposed],
+                "api": {identifier: document["api"][identifier] for identifier in exposed}}
+    return {"format": "meta-api-catalog/1", "catalogs": [{"id": "evolver", "catalog": snapshot}],
+            "unavailable": unavailable}
+
+
 def match(method: str, path: str, requested_action: str | None = None) -> tuple[str, dict[str, str]] | None:
     for action_id, action in operator_actions().items():
         binding = action["api"]

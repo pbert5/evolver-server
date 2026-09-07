@@ -71,9 +71,9 @@ class EvolverControlHandler(BaseHTTPRequestHandler):
             except Exception as exc:  # Health must describe, not hide, DB failure.
                 self._send(HTTPStatus.SERVICE_UNAVAILABLE, {"status": "unavailable", "error": str(exc)})
             return
-        if method == "GET" and path == "/api/actions":
+        if method == "GET" and path in {"/api/actions", "/api/meta/actions"}:
             try:
-                self._send(HTTPStatus.OK, contract.manifest())
+                self._send(HTTPStatus.OK, contract.workbench_manifest() if path == "/api/meta/actions" else contract.manifest())
             except (OSError, ValueError, json.JSONDecodeError) as exc:
                 self._send(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "action contract unavailable", "kind": "ContractUnavailable"})
             return
