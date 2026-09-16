@@ -2326,6 +2326,16 @@ def _manifest_for_controller(state: dict[str, Any], controller_id: str) -> tuple
 
 def _snapshot_versions(state: dict[str, Any], stable_id: str) -> dict[str, Any]:
     value = state["content_snapshots"].get(stable_id)
+    if isinstance(value, list):
+        # Durable stores may materialize the version map as a list of
+        # ContentSnapshot records.  Normalize that persisted shape before
+        # comparing by revision; otherwise an existing central snapshot is
+        # incorrectly reported as missing.
+        return {
+            str(item["revision"]): item
+            for item in value
+            if isinstance(item, dict) and item.get("revision") is not None
+        }
     if not isinstance(value, dict):
         return {}
     # Accept the simple record shape from early development state too.

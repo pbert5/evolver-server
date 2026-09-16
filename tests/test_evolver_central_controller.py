@@ -581,11 +581,15 @@ def test_explicit_recovery_manifest_is_operationally_separate_and_diffed_by_stab
                     {"id": "source-identical", "revision": "2", "digest": "same", "content": {"x": 1}},
                     {"id": "source-missing", "revision": "1", "digest": "missing", "content": {"x": 2}},
                     {"id": "source-conflict", "revision": "3", "digest": "edge", "content": {"x": 3}},
+                    {"id": "source-persisted-list", "revision": "4", "digest": "list-same", "content": {"x": 4}},
+                    {"id": "source-persisted-list-conflict", "revision": "5", "digest": "list-edge", "content": {"x": 5}},
                 ]}
     state = evolver_controller._read(evolver_controller.state_path(tmp_path))
     state["content_snapshots"] = {
         "source-identical": {"2": {"id": "source-identical", "revision": "2", "digest": "same", "content": {"x": 1}}},
         "source-conflict": {"3": {"id": "source-conflict", "revision": "3", "digest": "central", "content": {"x": 9}}},
+        "source-persisted-list": [{"id": "source-persisted-list", "revision": "4", "digest": "list-same", "content": {"x": 4}}],
+        "source-persisted-list-conflict": [{"id": "source-persisted-list-conflict", "revision": "5", "digest": "list-central", "content": {"x": 9}}],
     }
     evolver_controller._write(evolver_controller.state_path(tmp_path), state)
     # The edge replies to the explicit request durably; this is not part of
@@ -599,7 +603,8 @@ def test_explicit_recovery_manifest_is_operationally_separate_and_diffed_by_stab
     diff_status, diff = evolver_controller.recovery_diff("edge-a", state_root=tmp_path)
     assert diff_status == HTTPStatus.OK
     assert {item["object_id"]: item["state"] for item in diff["items"]} == {
-        "source-identical": "identical", "source-missing": "missing_central", "source-conflict": "conflict"}
+        "source-identical": "identical", "source-missing": "missing_central", "source-conflict": "conflict",
+        "source-persisted-list": "identical", "source-persisted-list-conflict": "conflict"}
     import_status, imported = evolver_controller.import_recovery_snapshot("edge-a", {"snapshot_id": "source-missing", "action": "import"}, state_root=tmp_path)
     assert import_status == HTTPStatus.OK and imported["outcome"] == "imported"
     conflict_status, _ = evolver_controller.import_recovery_snapshot("edge-a", {"snapshot_id": "source-conflict", "action": "import"}, state_root=tmp_path)
