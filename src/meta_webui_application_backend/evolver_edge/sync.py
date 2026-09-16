@@ -13,6 +13,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from .actuator import ManualCommandExecutor
@@ -25,6 +26,15 @@ Transport = Callable[[str, Json, dict[str, str], float], tuple[int, Json]]
 HardwareRequest = Callable[[Json, float], Json]
 MAX_RECORDS_PER_BATCH = 100
 MAX_STREAMS_PER_SYNC = 20
+
+
+def _secure_endpoint(url: str) -> str:
+    """Reject endpoints that could receive or return durable credentials in cleartext."""
+    parsed = urlparse(url.rstrip("/"))
+    if (parsed.scheme != "https" or not parsed.netloc
+            or parsed.username or parsed.password):
+        raise ValueError("machine credential transport requires an HTTPS endpoint without embedded credentials")
+    return url.rstrip("/")
 
 
 def _is_locked_database(error: sqlite3.OperationalError) -> bool:
@@ -85,6 +95,7 @@ class SyncClient:
         return {"current": current, "requested": requested, "required_path": path}
 
     def enroll(self, *, server: str, token: str, mode: str | None = None, operator_confirmed: bool = False) -> Json:
+        server = _secure_endpoint(server)
         identity = self.store.identity()
         current = self.store.binding()
         if current and mode is None:
@@ -102,7 +113,7 @@ class SyncClient:
         if mode == "forced_adoption":
             body["operator_confirmed"] = operator_confirmed
         if mode == "live_handoff":
-            release_status, release = self.transport(current["server_url"].rstrip("/") + "/api/evolver/controllers/handoff/release", {
+            release_status, release = self.transport(_secure_endpoint(current["server_url"]) + "/api/evolver/controllers/handoff/release", {
                 "controller_id": identity["id"], "target_server_url": server.rstrip("/"),
             }, {"authorization": f"Bearer {current['credential']}"}, self.timeout)
             if release_status >= 400:
@@ -110,7 +121,7 @@ class SyncClient:
             if release.get("released_generation") != current["generation"]:
                 raise StaleGenerationError("old WebUI released an unexpected controller generation")
             body["handoff_released"] = True
-        status, response = self.transport(server.rstrip("/") + "/api/evolver/controllers/enroll", {
+        status, response = self.transport(server + "/api/evolver/controllers/enroll", {
             **body,
         }, {}, self.timeout)
         if status not in {200, 201}:
@@ -118,7 +129,7 @@ class SyncClient:
         binding, central = response.get("binding"), response.get("webui_controller")
         if not isinstance(binding, dict) or not isinstance(central, dict) or not response.get("credential"):
             raise RuntimeError("enrollment response lacks durable binding or credential")
-        self.store.bind(webui_controller_id=central["id"], server_url=server.rstrip("/"), credential=response["credential"],
+        self.store.bind(webui_controller_id=central["id"], server_url=server, credential=response["credential"],
                         generation=int(binding["controller_generation"]), status="active",
                         force_adoption=mode in {"live_handoff", "forced_adoption"})
         return response
@@ -160,7 +171,7 @@ class SyncClient:
         if not binding:
             raise RuntimeError("controller is not enrolled")
         try:
-            status, response = self.transport(binding["server_url"].rstrip("/") + "/api/evolver/controllers/sync", self._batch(inventory),
+            status, response = self.transport(_secure_endpoint(binding["server_url"]) + "/api/evolver/controllers/sync", self._batch(inventory),
                                               {"authorization": f"Bearer {binding['credential']}"}, self.timeout)
         except (OSError, URLError, TimeoutError):
             self.store.set_connection_state("orphaned")
@@ -201,7 +212,7 @@ class SyncClient:
         body = {"controller_id": identity["id"], "controller_generation": binding["generation"],
                 "last_cursor": cursor, "wait_seconds": max(0.0, min(30.0, float(wait_seconds)))}
         try:
-            status, response = self.transport(binding["server_url"].rstrip("/") + "/api/evolver/controllers/commands/wait",
+            status, response = self.transport(_secure_endpoint(binding["server_url"]) + "/api/evolver/controllers/commands/wait",
                                               body, {"authorization": f"Bearer {binding['credential']}"},
                                               max(self.timeout, body["wait_seconds"] + 5))
         except (OSError, URLError, TimeoutError):

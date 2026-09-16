@@ -19,8 +19,7 @@ def approved_enrollment_endpoints(monkeypatch):
         '[{"id":"central","label":"Central","url":"https://central","controller_reachable":true,"enabled":true},'
         '{"id":"webui","label":"WebUI","url":"https://webui","controller_reachable":true,"enabled":true},'
         '{"id":"webui-example","label":"WebUI example","url":"https://webui.example","controller_reachable":true,"enabled":true},'
-        '{"id":"webui-local","label":"WebUI local","url":"http://webui:18086","controller_reachable":true,"enabled":true},'
-        '{"id":"webui-http","label":"WebUI HTTP","url":"http://webui","controller_reachable":true,"enabled":true}]',
+        '{"id":"webui-local","label":"WebUI local","url":"https://webui:18086","controller_reachable":true,"enabled":true}]',
     )
 
 
@@ -50,6 +49,11 @@ def test_enrollment_token_requires_approved_endpoint_and_supports_endpoint_id(tm
         endpoint_id="", state_root=tmp_path,
     )
     assert invalid_id == HTTPStatus.BAD_REQUEST
+
+    insecure, _ = evolver_controller.create_enrollment_token(
+        server_url="http://webui", state_root=tmp_path,
+    )
+    assert insecure == HTTPStatus.BAD_REQUEST
 
 
 def test_enrollment_uses_persisted_server_url_without_revalidating_old_token(tmp_path, monkeypatch):
@@ -129,7 +133,7 @@ def test_command_wait_is_bounded_generation_fenced_and_safe_stop_prioritized(tmp
 
 
 def test_identity_tokens_and_enrollment_survive_central_restart(tmp_path):
-    first_status, first = evolver_controller.create_enrollment_token(server_url="http://webui:18086", state_root=tmp_path)
+    first_status, first = evolver_controller.create_enrollment_token(server_url="https://webui:18086", state_root=tmp_path)
     assert first_status == HTTPStatus.CREATED
     enrolled_status, enrolled = evolver_controller.enroll(
         {"controller_id": "edge-a", "public_key_fingerprint": "edge-public", "enrollment_token": first["enrollment_token"]}, state_root=tmp_path,
@@ -143,7 +147,7 @@ def test_identity_tokens_and_enrollment_survive_central_restart(tmp_path):
         {"controller_id": "edge-b", "enrollment_token": first["enrollment_token"]}, state_root=tmp_path,
     )
     assert rejected_status == HTTPStatus.UNAUTHORIZED
-    next_status, next_token = evolver_controller.create_enrollment_token(server_url="http://webui:18086", state_root=tmp_path)
+    next_status, next_token = evolver_controller.create_enrollment_token(server_url="https://webui:18086", state_root=tmp_path)
     assert next_status == HTTPStatus.CREATED
     assert next_token["webui_controller"] == first["webui_controller"]
 
@@ -161,7 +165,7 @@ def test_existing_json_install_is_a_one_time_bootstrap_source(tmp_path, monkeypa
 
 
 def test_authenticated_sync_is_fenced_deduplicated_and_persistent(tmp_path):
-    _, token = evolver_controller.create_enrollment_token(server_url="http://webui:18086", state_root=tmp_path)
+    _, token = evolver_controller.create_enrollment_token(server_url="https://webui:18086", state_root=tmp_path)
     _, enrolled = evolver_controller.enroll({"controller_id": "edge-a", "enrollment_token": token["enrollment_token"]}, state_root=tmp_path)
     body = {
         "controller_id": "edge-a", "controller_generation": 1,
@@ -194,7 +198,7 @@ def test_authenticated_sync_is_fenced_deduplicated_and_persistent(tmp_path):
 
 
 def test_history_replay_is_idempotent_and_changed_fact_is_conflict(tmp_path):
-    _, token = evolver_controller.create_enrollment_token(server_url="http://webui", state_root=tmp_path)
+    _, token = evolver_controller.create_enrollment_token(server_url="https://webui", state_root=tmp_path)
     _, enrolled = evolver_controller.enroll({"controller_id": "edge-a", "enrollment_token": token["enrollment_token"]}, state_root=tmp_path)
     base = {"controller_id": "edge-a", "controller_generation": 1, "history_batches": [{
         "fact_type": "event", "stream_id": "run-a", "records": [{"fact_id": "fact-1", "run_id": "run-a", "sequence": 1, "payload": {"state": "running"}}]}]}
@@ -208,7 +212,7 @@ def test_history_replay_is_idempotent_and_changed_fact_is_conflict(tmp_path):
 
 
 def test_cursor_sync_retries_only_unacknowledged_records(tmp_path):
-    _, token = evolver_controller.create_enrollment_token(server_url="http://webui", state_root=tmp_path)
+    _, token = evolver_controller.create_enrollment_token(server_url="https://webui", state_root=tmp_path)
     _, enrolled = evolver_controller.enroll({"controller_id": "edge-a", "enrollment_token": token["enrollment_token"]}, state_root=tmp_path)
     def body(start: int, end: int):
         return {"controller_id": "edge-a", "controller_generation": 1,

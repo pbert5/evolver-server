@@ -40,7 +40,7 @@ def controller_endpoints() -> list[dict[str, Any]]:
         if not isinstance(endpoint["id"], str) or not endpoint["id"] or not isinstance(endpoint["label"], str) or not endpoint["label"]:
             raise ValueError("each controller endpoint requires a stable id and label")
         parsed = urlparse(endpoint["url"])
-        if parsed.scheme not in {"http", "https"} or not parsed.netloc or parsed.username or parsed.password:
+        if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
             raise ValueError(f"controller endpoint {endpoint['id']} has an invalid URL")
         if endpoint["controller_reachable"] and endpoint["enabled"]:
             result.append(endpoint)
