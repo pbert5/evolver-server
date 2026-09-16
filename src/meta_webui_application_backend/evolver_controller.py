@@ -2168,13 +2168,13 @@ def command_projection(controller_id: str, command_id: str | None = None, *,
         _fence_lease_commands(commands, state.setdefault("manual_control_leases", {}).get(controller_id))
         if command_id is None:
             _write(state_path(state_root), state)
-            return HTTPStatus.OK, {"controller_id": controller_id, "commands": copy.deepcopy(commands),
+            return HTTPStatus.OK, {"controller_id": controller_id, "commands": [_public_command(command) for command in commands],
                                    "webui_controller": _response_identity(state)}
         command = next((item for item in commands if isinstance(item, dict) and item.get("command_id") == command_id), None)
         if not isinstance(command, dict):
             return HTTPStatus.NOT_FOUND, _error("command not found", "NotFound", state)
         _write(state_path(state_root), state)
-        return HTTPStatus.OK, {"controller_id": controller_id, "command": copy.deepcopy(command),
+        return HTTPStatus.OK, {"controller_id": controller_id, "command": _public_command(command),
                                "webui_controller": _response_identity(state)}
 
 
@@ -2416,6 +2416,20 @@ def _public_run(value: Mapping[str, Any]) -> dict[str, Any]:
         if isinstance(item, list):
             return [clean(child) for child in item[-MAX_RUN_PROJECTION:]]
         return item
+    result = clean(value)
+    return result if isinstance(result, dict) else {}
+
+
+def _public_command(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Return a command projection with delivery-only lease secrets removed."""
+    def clean(item: Any) -> Any:
+        if isinstance(item, Mapping):
+            return {str(key): ("<redacted>" if str(key).lower() == "lease_token" else clean(child))
+                    for key, child in item.items()}
+        if isinstance(item, list):
+            return [clean(child) for child in item]
+        return item
+
     result = clean(value)
     return result if isinstance(result, dict) else {}
 

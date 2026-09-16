@@ -98,6 +98,42 @@ def test_adapter_preserves_generation_revision_and_manual_lease_fencing(tmp_path
                for item in projected["commands"])
 
 
+def test_command_read_projections_redact_lease_tokens_but_machine_sync_delivers_them(tmp_path):
+    adapter, enrolled = _adapter(tmp_path)
+    operator = _operator("operate_run")
+    status, lease = adapter.dispatch("manual_control_lease", {"controller_id": "edge-a", "ttl_seconds": 60}, operator=operator)
+    assert status == HTTPStatus.CREATED
+    status, queued = adapter.dispatch("manual_command", {
+        "controller_id": "edge-a", "operation": "stir_pulse", "duration_ms": 100,
+        "ttl_seconds": 10, "idempotency_key": "projection-secret",
+        "target": {"nested": {"lease_token": "nested-secret"}},
+    }, operator=operator)
+    assert status == HTTPStatus.ACCEPTED
+    command_id = queued["command"]["command_id"]
+    token = lease["lease"]["lease_token"]
+
+    status, listed = adapter.dispatch("evolver.controllers.commands.list", {"controller_id": "edge-a"})
+    assert status == HTTPStatus.OK
+    listed_command = next(item for item in listed["commands"] if item["command_id"] == command_id)
+    assert listed_command["lease_token"] == "<redacted>"
+    assert listed_command["target"]["nested"]["lease_token"] == "<redacted>"
+
+    status, shown = adapter.dispatch("evolver.controllers.commands.show", {
+        "controller_id": "edge-a", "command_id": command_id,
+    })
+    assert status == HTTPStatus.OK
+    assert shown["command"]["lease_token"] == "<redacted>"
+    assert shown["command"]["target"]["nested"]["lease_token"] == "<redacted>"
+
+    status, synced = evolver_controller.sync(
+        {"controller_id": "edge-a", "controller_generation": enrolled["binding"]["controller_generation"]},
+        credential=enrolled["credential"], state_root=tmp_path,
+    )
+    assert status == HTTPStatus.OK
+    delivered = next(item for item in synced["commands"] if item["command_id"] == command_id)
+    assert delivered["lease_token"] == token
+
+
 def test_adapter_exposes_bounded_simulator_safe_stir(tmp_path):
     adapter, _ = _adapter(tmp_path)
     operator = _operator("operate_run")
