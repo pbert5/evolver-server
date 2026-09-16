@@ -104,6 +104,14 @@ class EvolverControlHandler(BaseHTTPRequestHandler):
                 self._send(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "action contract unavailable", "kind": "ContractUnavailable"})
             return
         projected = contract.match(method, path)
+        # Catalog routes below apply their precise action permission. Routes
+        # that are intentionally not catalog actions still belong to the
+        # human gateway and must not be callable on the raw control socket.
+        if projected is None and evolver_controller.route_owner(path) == "human":
+            denied = evolver_controller._require_operator(proxy_operator(self.headers), "view")
+            if denied:
+                self._send(*denied)
+                return
         if projected is not None:
             try:
                 body = self._body() if method != "GET" else None

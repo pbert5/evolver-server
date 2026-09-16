@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 from http import HTTPStatus
 
 from meta_webui_application_backend import evolver_controller
@@ -106,3 +107,17 @@ def test_gateway_does_not_forward_human_bearer_to_raw_operator_routes(monkeypatc
                             authorization="Bearer human-token",
                             operator=evolver_controller.OperatorIdentity("alice", "webui_gateway", frozenset({"operate_run"})))
     assert "Authorization" not in captured
+
+
+def test_uncatalogued_human_routes_require_gateway_operator_context(monkeypatch):
+    handler = service.EvolverControlHandler.__new__(service.EvolverControlHandler)
+    handler.path = "/api/evolver/dashboard"
+    handler.headers = {}
+    handler.rfile = io.BytesIO()
+    sent = {}
+    monkeypatch.setattr(handler, "_send", lambda status, payload: sent.update(status=status, payload=payload))
+
+    handler._handle("GET")
+
+    assert sent["status"] == HTTPStatus.UNAUTHORIZED
+    assert sent["payload"]["kind"] == "OperatorAuthenticationRequired"
