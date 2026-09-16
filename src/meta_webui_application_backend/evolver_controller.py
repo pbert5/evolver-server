@@ -1960,15 +1960,11 @@ def archive_controller(controller_id: str, *, operator: OperatorIdentity | None,
         if current == target:
             return HTTPStatus.OK, {"controller": _public_controller(controller), "idempotent": True,
                                    "webui_controller": _response_identity(state)}
-        if not restore:
-            active_runs = _active_run_ids(controller)
-            if active_runs:
-                return HTTPStatus.CONFLICT, _error("cannot archive controller with active runs", "ActiveRunsProtectiveBlock",
-                                                   state, active_run_ids=active_runs)
+        active_runs = _active_run_ids(controller) if not restore else []
         controller["lifecycle_state"] = target
         event = {"id": f"controller-lifecycle-{uuid.uuid4()}", "controller_id": controller_id,
                  "event_type": "restored" if restore else "archived", "occurred_at": _iso(),
-                 "actor": operator.subject}
+                 "actor": operator.subject, "active_run_ids": active_runs}
         controller.setdefault("lifecycle_history", []).append(copy.deepcopy(event))
         state.setdefault("controller_lifecycle_events", []).append(event)
         _audit(state, f"controller_{target}", actor=operator.subject, details=event)

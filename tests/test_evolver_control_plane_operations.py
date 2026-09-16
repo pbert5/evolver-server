@@ -166,22 +166,23 @@ def test_desired_release_uses_validated_catalog_and_keeps_installed_observation_
     assert status == HTTPStatus.OK and duplicate["idempotent"] is True
 
 
-def test_controller_archive_restore_is_soft_audited_and_active_run_protected(tmp_path):
+def test_controller_archive_restore_soft_audits_active_runs(tmp_path):
     _enrolled(tmp_path)
     operator = _operator("manage_controller")
     state_path = evolver_controller.state_path(tmp_path)
     state = evolver_controller._read(state_path)
     state["controllers"]["edge-a"]["recovery_summary"] = {"runs": [{"id": "run-1", "state": "running"}]}
     evolver_controller._write(state_path, state)
-    status, blocked = evolver_controller.dispatch("POST", "/api/evolver/controllers/edge-a/archive", {}, operator=operator, state_root=tmp_path)
-    assert status == HTTPStatus.CONFLICT and blocked["kind"] == "ActiveRunsProtectiveBlock"
-    state = evolver_controller._read(state_path); state["controllers"]["edge-a"]["recovery_summary"] = {"runs": []}; evolver_controller._write(state_path, state)
     status, archived = evolver_controller.dispatch("POST", "/api/evolver/controllers/edge-a/archive", {}, operator=operator, state_root=tmp_path)
     assert status == HTTPStatus.OK and archived["controller"]["lifecycle_state"] == "archived"
+    assert archived["event"]["active_run_ids"] == ["run-1"]
     status, denied = evolver_controller.dispatch("POST", "/api/evolver/controllers/edge-a/refresh", {}, operator=operator, state_root=tmp_path)
     assert status == HTTPStatus.CONFLICT and denied["kind"] == "ControllerArchived"
     status, restored = evolver_controller.dispatch("POST", "/api/evolver/controllers/edge-a/restore", {}, operator=operator, state_root=tmp_path)
     assert status == HTTPStatus.OK and restored["controller"]["lifecycle_state"] == "active"
+    assert restored["event"]["active_run_ids"] == []
     final = evolver_controller._read(state_path)
     assert [event["event_type"] for event in final["controller_lifecycle_events"]] == ["archived", "restored"]
     assert {event["event_type"] for event in final["audit_events"]} >= {"controller_archived", "controller_active"}
+    archived_audit = next(event for event in final["audit_events"] if event["event_type"] == "controller_archived")
+    assert archived_audit["details"]["active_run_ids"] == ["run-1"]
