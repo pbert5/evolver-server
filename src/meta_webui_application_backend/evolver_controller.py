@@ -1909,6 +1909,12 @@ def _active_run_ids(controller: Mapping[str, Any]) -> list[str]:
             and run.get("state") in {"running", "paused", "stopping"} and run.get("id")]
 
 
+def _installed_release_observation(controller: Mapping[str, Any]) -> str | None:
+    """Return the edge-observed installed release, independent of desired intent."""
+    heartbeat = controller.get("last_heartbeat")
+    return heartbeat.get("controller_software_release") if isinstance(heartbeat, Mapping) else None
+
+
 def set_desired_release(controller_id: str, body: Any, *, operator: OperatorIdentity | None,
                         state_root: Path | None = None) -> tuple[HTTPStatus, dict[str, Any]]:
     """Persist future software intent; installed software remains edge evidence."""
@@ -1933,7 +1939,7 @@ def set_desired_release(controller_id: str, body: Any, *, operator: OperatorIden
             return HTTPStatus.CONFLICT, _error("archived controller cannot receive update intent", "ControllerArchived", state)
         if isinstance(key, str) and controller.get("desired_release_idempotency_key") == key:
             return HTTPStatus.OK, {"controller_id": controller_id, "desired_release": controller.get("desired_release"),
-                                   "installed_release": (controller.get("last_heartbeat") or {}).get("controller_software_release"),
+                                   "installed_release": _installed_release_observation(controller),
                                    "idempotent": True, "webui_controller": _response_identity(state)}
         controller.update({"desired_release": release, "desired_release_idempotency_key": key,
                            "desired_release_requested_at": _iso(), "desired_release_requested_by": operator.subject})
@@ -1941,7 +1947,7 @@ def set_desired_release(controller_id: str, body: Any, *, operator: OperatorIden
                details={"controller_id": controller_id, "release": release, "idempotency_key": key})
         _write(path, state)
         return HTTPStatus.ACCEPTED, {"controller_id": controller_id, "desired_release": release,
-                                     "installed_release": (controller.get("last_heartbeat") or {}).get("controller_software_release"),
+                                     "installed_release": _installed_release_observation(controller),
                                      "deferred_to_edge_policy": True, "webui_controller": _response_identity(state)}
 
 

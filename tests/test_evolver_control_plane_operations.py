@@ -148,10 +148,14 @@ def test_desired_release_uses_validated_catalog_and_keeps_installed_observation_
         "artifacts": {"linux-x86_64": {"url": "/releases/evolver/2026.08.27/controller.tar.gz", "sha256": "b" * 64, "size": 1}},
     }))
     monkeypatch.setenv("META_WEBUI_EVOLVER_RELEASE_ROOT", str(release_root))
-    _enrolled(tmp_path)
-    state = evolver_controller._read(evolver_controller.state_path(tmp_path))
-    state["controllers"]["edge-a"]["last_heartbeat"] = {"controller_software_release": "old"}
-    evolver_controller._write(evolver_controller.state_path(tmp_path), state)
+    enrolled = _enrolled(tmp_path)
+    status, observation = evolver_controller.sync(
+        {"controller_id": "edge-a", "controller_generation": enrolled["binding"]["controller_generation"],
+         "heartbeat": {"controller_software_release": "old",
+                        "desired_controller_software_release": "stale-intent"}},
+        credential=enrolled["credential"], state_root=tmp_path,
+    )
+    assert status == HTTPStatus.OK and observation["desired_release"] is None
     operator = _operator("update_controller")
     status, response = evolver_controller.dispatch("POST", "/api/evolver/controllers/edge-a/desired-release",
                                                     {"release": "2026.08.27", "idempotency_key": "request-1"},
