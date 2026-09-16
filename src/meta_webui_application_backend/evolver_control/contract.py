@@ -41,6 +41,20 @@ def operator_actions() -> dict[str, dict[str, Any]]:
     return result
 
 
+def catalog_document() -> dict[str, Any]:
+    """Return the validated deployment catalog document for discovery."""
+    return json.loads(catalog_path().read_text(encoding="utf-8"))
+
+
+def required_permission(action_id: str) -> str | None:
+    permissions = operator_actions()[action_id].get("permissions", [])
+    if not permissions:
+        return None
+    # The catalog names the eVOLVER read capability explicitly; the WebUI
+    # access model owns its application-wide equivalent.
+    return {"evolver:read": "view"}.get(permissions[0], permissions[0])
+
+
 def manifest() -> dict[str, Any]:
     return {"version": json.loads(catalog_path().read_text(encoding="utf-8")).get("version"),
             "actions": [{"id": action_id, "title": action["title"], "method": action["api"]["method"],

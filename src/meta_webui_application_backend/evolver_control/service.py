@@ -41,6 +41,14 @@ def proxy_operator(headers: Any) -> evolver_controller.OperatorIdentity | None:
     return evolver_controller.OperatorIdentity(subject=subject.strip(), source="webui_gateway", permissions=allowed)
 
 
+def operator_for_action(action_id: str, headers: Any) -> tuple[HTTPStatus, dict[str, Any]] | None:
+    operator = proxy_operator(headers)
+    permission = contract.required_permission(action_id)
+    if permission:
+        return evolver_controller._require_operator(operator, permission)
+    return None
+
+
 class EvolverControlHandler(BaseHTTPRequestHandler):
     server_version = "MetaWebUIEvolverControl/1"
 
@@ -72,9 +80,27 @@ class EvolverControlHandler(BaseHTTPRequestHandler):
                 self._send(HTTPStatus.SERVICE_UNAVAILABLE, {"status": "unavailable", "error": str(exc)})
             return
         if method == "GET" and path == "/api/actions":
+            denied = evolver_controller._require_operator(proxy_operator(self.headers), "view")
+            if denied:
+                self._send(*denied)
+                return
             try:
                 self._send(HTTPStatus.OK, contract.manifest())
             except (OSError, ValueError, json.JSONDecodeError) as exc:
+                self._send(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "action contract unavailable", "kind": "ContractUnavailable"})
+            return
+        if method == "GET" and path == "/api/meta/actions":
+            denied = evolver_controller._require_operator(proxy_operator(self.headers), "view")
+            if denied:
+                self._send(*denied)
+                return
+            try:
+                self._send(HTTPStatus.OK, {
+                    "format": "meta-api-catalog/1",
+                    "catalogs": [{"id": "evolver", "catalog": contract.catalog_document()}],
+                    "unavailable": [],
+                })
+            except (OSError, ValueError, json.JSONDecodeError):
                 self._send(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "action contract unavailable", "kind": "ContractUnavailable"})
             return
         projected = contract.match(method, path)
@@ -117,6 +143,10 @@ class EvolverControlHandler(BaseHTTPRequestHandler):
             invalid = contract.validate_parameters(action_id, parameters)
             if invalid:
                 self._send(HTTPStatus.BAD_REQUEST, {"error": invalid, "kind": "BadRequest"})
+                return
+            denied = operator_for_action(action_id, self.headers)
+            if denied:
+                self._send(*denied)
                 return
             status, payload = dispatch_action(action_id, parameters, operator=proxy_operator(self.headers))
             self._send(status, payload)

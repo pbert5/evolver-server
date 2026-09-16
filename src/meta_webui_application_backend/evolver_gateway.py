@@ -13,6 +13,13 @@ from .evolver_control.service import CONTROL_SHARED_SECRET_ENV, PROXY_OPERATOR_H
 
 CONTROL_URL_ENV = "META_WEBUI_EVOLVER_CONTROL_URL"
 
+_MACHINE_AUTH_PATHS = {
+    "/api/evolver/controllers/enroll",
+    "/api/evolver/controllers/handoff/release",
+    "/api/evolver/controllers/commands/wait",
+    "/api/evolver/controllers/sync",
+}
+
 
 def dispatch(method: str, path: str, body: Any, *, query: str = "", operator: evolver_controller.OperatorIdentity | None = None,
              authorization: str | None = None) -> tuple[HTTPStatus, dict[str, Any]]:
@@ -20,7 +27,9 @@ def dispatch(method: str, path: str, body: Any, *, query: str = "", operator: ev
     base = os.environ.get(CONTROL_URL_ENV, "http://127.0.0.1:18087").rstrip("/")
     secret = os.environ.get(CONTROL_SHARED_SECRET_ENV, "")
     headers = {"Accept": "application/json"}
-    if authorization:
+    # Human bearer/session authentication terminates at WebUI. Only the
+    # controller credential is allowed across this boundary.
+    if authorization and path in _MACHINE_AUTH_PATHS:
         headers["Authorization"] = authorization
     if operator is not None:
         if not secret:
