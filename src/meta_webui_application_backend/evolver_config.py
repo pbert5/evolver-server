@@ -7,7 +7,11 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-_CONFIG = Path(__file__).resolve().parents[3] / "config" / "server.yaml"
+# The standalone server package owns its deployment configuration.  The
+# previous parent walked to ``evolver/`` (the component collection), where no
+# ``config/server.yaml`` exists, so a default checkout silently behaved as if
+# its endpoint registry were absent.
+_CONFIG = Path(__file__).resolve().parents[2] / "config" / "server.yaml"
 
 
 def controller_endpoints() -> list[dict[str, Any]]:
