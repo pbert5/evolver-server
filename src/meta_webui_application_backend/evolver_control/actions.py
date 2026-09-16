@@ -129,7 +129,7 @@ def dispatch(action: str, parameters: Mapping[str, Any] | None = None, *,
         if denied:
             return denied
         return evolver_controller.create_enrollment_token(
-            server_url=body.get("server_url", ""),
+            server_url=body.get("server_url"), endpoint_id=body.get("endpoint_id"),
             ttl_seconds=body.get("ttl_seconds", evolver_controller.DEFAULT_TOKEN_TTL_SECONDS),
             purpose=body.get("purpose", "enrollment"), release_binding=body.get("release_binding"),
             state_root=state_root)

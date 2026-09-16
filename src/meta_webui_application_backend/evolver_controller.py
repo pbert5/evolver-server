@@ -435,7 +435,28 @@ def _response_identity(state: dict[str, Any]) -> dict[str, str]:
     return copy.deepcopy(_identity(state))
 
 
-def create_enrollment_token(*, server_url: str, ttl_seconds: int = DEFAULT_TOKEN_TTL_SECONDS,
+def _approved_enrollment_endpoint(*, server_url: str | None, endpoint_id: str | None) -> dict[str, Any] | None:
+    """Resolve issuance to an enabled, controller-reachable endpoint."""
+    from .evolver_config import controller_endpoints, select_controller_endpoint
+
+    try:
+        if endpoint_id is not None:
+            if not isinstance(endpoint_id, str) or not endpoint_id.strip():
+                return None
+            endpoint = select_controller_endpoint(endpoint_id)
+            if server_url is not None and (not isinstance(server_url, str) or server_url.rstrip("/") != endpoint["url"]):
+                return None
+            return endpoint
+        if not isinstance(server_url, str) or not server_url.strip():
+            return None
+        normalized = server_url.rstrip("/")
+        return next((endpoint for endpoint in controller_endpoints() if endpoint["url"] == normalized), None)
+    except ValueError:
+        return None
+
+
+def create_enrollment_token(*, server_url: str | None = None, endpoint_id: str | None = None,
+                            ttl_seconds: int = DEFAULT_TOKEN_TTL_SECONDS,
                             purpose: str = "enrollment", state_root: Path | None = None,
                             release_binding: Mapping[str, str] | None = None) -> tuple[HTTPStatus, dict[str, Any]]:
     """Issue a single-use, purpose-bound enrollment credential.
@@ -445,8 +466,10 @@ def create_enrollment_token(*, server_url: str, ttl_seconds: int = DEFAULT_TOKEN
     are separate operator actions, making a recovery takeover visible in both
     the central audit projection and the edge's durable binding history.
     """
-    if not isinstance(server_url, str) or not server_url.strip():
-        return HTTPStatus.BAD_REQUEST, _error("server_url is required")
+    endpoint = _approved_enrollment_endpoint(server_url=server_url, endpoint_id=endpoint_id)
+    if endpoint is None:
+        return HTTPStatus.BAD_REQUEST, _error("server_url must identify an approved controller-reachable endpoint")
+    server_url = endpoint["url"]
     if ttl_seconds <= 0:
         return HTTPStatus.BAD_REQUEST, _error("ttl_seconds must be positive")
     if purpose not in {"enrollment", "repair", "live_handoff", "forced_adoption"}:
@@ -477,6 +500,7 @@ def create_enrollment_token(*, server_url: str, ttl_seconds: int = DEFAULT_TOKEN
         "token_id": token_id,
         "expires_at": _iso(expires_at),
         "server_url": server_url.rstrip("/"),
+        "endpoint_id": endpoint["id"],
         "purpose": purpose,
         "webui_controller": _response_identity(state),
     }
@@ -2709,7 +2733,7 @@ def dispatch(method: str, path: str, body: Any, *, query: str = "", authorizatio
         if denied:
             return denied
         body = body if isinstance(body, dict) else {}
-        return create_enrollment_token(server_url=body.get("server_url", ""), ttl_seconds=body.get("ttl_seconds", DEFAULT_TOKEN_TTL_SECONDS),
+        return create_enrollment_token(server_url=body.get("server_url"), endpoint_id=body.get("endpoint_id"), ttl_seconds=body.get("ttl_seconds", DEFAULT_TOKEN_TTL_SECONDS),
                                        purpose=body.get("purpose", "enrollment"), release_binding=body.get("release_binding"))
     if path == "/api/evolver/controllers/enroll":
         return enroll(body, state_root=state_root) if method == "POST" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))

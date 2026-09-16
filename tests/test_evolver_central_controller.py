@@ -12,6 +12,59 @@ from meta_webui_application_backend.evolver_edge.hardware import ProbeError, Pro
 from meta_webui_application_backend.evolver_edge.hardware_service import poll_once
 
 
+@pytest.fixture(autouse=True)
+def approved_enrollment_endpoints(monkeypatch):
+    monkeypatch.setenv(
+        "META_WEBUI_EVOLVER_CONTROLLER_ENDPOINTS",
+        '[{"id":"central","label":"Central","url":"https://central","controller_reachable":true,"enabled":true},'
+        '{"id":"webui","label":"WebUI","url":"https://webui","controller_reachable":true,"enabled":true},'
+        '{"id":"webui-example","label":"WebUI example","url":"https://webui.example","controller_reachable":true,"enabled":true},'
+        '{"id":"webui-local","label":"WebUI local","url":"http://webui:18086","controller_reachable":true,"enabled":true},'
+        '{"id":"webui-http","label":"WebUI HTTP","url":"http://webui","controller_reachable":true,"enabled":true}]',
+    )
+
+
+def test_enrollment_token_requires_approved_endpoint_and_supports_endpoint_id(tmp_path):
+    rejected, response = evolver_controller.create_enrollment_token(
+        server_url="https://attacker.example", state_root=tmp_path,
+    )
+    assert rejected == HTTPStatus.BAD_REQUEST
+    assert response["kind"] == "BadRequest"
+
+    created, token = evolver_controller.create_enrollment_token(
+        endpoint_id="webui-example", state_root=tmp_path,
+    )
+    assert created == HTTPStatus.CREATED
+    assert token["endpoint_id"] == "webui-example"
+    assert token["server_url"] == "https://webui.example"
+
+    mismatch, _ = evolver_controller.create_enrollment_token(
+        endpoint_id="webui-example", server_url="https://central", state_root=tmp_path,
+    )
+    assert mismatch == HTTPStatus.BAD_REQUEST
+    unavailable, _ = evolver_controller.create_enrollment_token(
+        endpoint_id="missing", state_root=tmp_path,
+    )
+    assert unavailable == HTTPStatus.BAD_REQUEST
+    invalid_id, _ = evolver_controller.create_enrollment_token(
+        endpoint_id="", state_root=tmp_path,
+    )
+    assert invalid_id == HTTPStatus.BAD_REQUEST
+
+
+def test_enrollment_uses_persisted_server_url_without_revalidating_old_token(tmp_path, monkeypatch):
+    created, token = evolver_controller.create_enrollment_token(
+        endpoint_id="central", state_root=tmp_path,
+    )
+    assert created == HTTPStatus.CREATED
+    monkeypatch.setenv("META_WEBUI_EVOLVER_CONTROLLER_ENDPOINTS", "[]")
+    enrolled, response = evolver_controller.enroll(
+        {"controller_id": "edge-old", "enrollment_token": token["enrollment_token"]}, state_root=tmp_path,
+    )
+    assert enrolled == HTTPStatus.CREATED
+    assert response["binding"]["server_url"] == "https://central"
+
+
 def test_sensitive_http_operations_fail_closed_without_deployment_operator(tmp_path, monkeypatch):
     monkeypatch.setenv(evolver_controller.STATE_ROOT_ENV, str(tmp_path))
     status, response = evolver_controller.dispatch(

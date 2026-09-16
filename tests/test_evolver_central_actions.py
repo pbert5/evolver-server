@@ -1,10 +1,19 @@
 from http import HTTPStatus
+import pytest
 
 from meta_webui_application_backend import evolver_controller
 from meta_webui_application_backend.evolver_control.actions import (
     CentralEvolverActionAdapter,
     UnknownAction,
 )
+
+
+@pytest.fixture(autouse=True)
+def approved_enrollment_endpoints(monkeypatch):
+    monkeypatch.setenv(
+        "META_WEBUI_EVOLVER_CONTROLLER_ENDPOINTS",
+        '[{"id":"central","label":"Central","url":"https://central","controller_reachable":true,"enabled":true}]',
+    )
 
 
 def _operator(*permissions: str) -> evolver_controller.OperatorIdentity:
