@@ -2187,6 +2187,17 @@ def manual_control_command(controller_id: str, body: Any, *, operator: OperatorI
         return HTTPStatus.ACCEPTED, {"command": copy.deepcopy(command), "webui_controller": _response_identity(state)}
 
 
+def safe_stop_command(controller_id: str, body: Any, *, operator: OperatorIdentity | None,
+                      state_root: Path | None = None) -> tuple[HTTPStatus, dict[str, Any]]:
+    """Queue the dedicated no-lease safe-stop intent through the manual seam."""
+    if body is not None and (not isinstance(body, dict) or set(body) - {"idempotency_key"}):
+        return HTTPStatus.BAD_REQUEST, _error("safe-stop accepts only idempotency_key", "BadRequest")
+    request = {"operation": "safe_stop"}
+    if isinstance(body, dict) and "idempotency_key" in body:
+        request["idempotency_key"] = body["idempotency_key"]
+    return manual_control_command(controller_id, request, operator=operator, state_root=state_root)
+
+
 def command_projection(controller_id: str, command_id: str | None = None, *,
                        state_root: Path | None = None) -> tuple[HTTPStatus, dict[str, Any]]:
     """Expose durable command state without implying physical execution."""
@@ -2801,6 +2812,9 @@ def dispatch(method: str, path: str, body: Any, *, query: str = "", authorizatio
             else:
                 return HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed")
             return manual_control_lease(controller_id, body, operator=operator, action=action, state_root=state_root)
+        if suffix.endswith("/safe-stop"):
+            controller_id = suffix.removesuffix("/safe-stop").strip("/")
+            return safe_stop_command(controller_id, body, operator=operator, state_root=state_root) if method == "POST" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
         if suffix.endswith("/manual-control-lease/revoke") or suffix.endswith("/manual-control-lease/emergency-release"):
             emergency = suffix.endswith("/emergency-release")
             marker = "/manual-control-lease/emergency-release" if emergency else "/manual-control-lease/revoke"

@@ -82,6 +82,46 @@ def test_manual_command_is_durable_fenced_and_expires_before_sync_delivery(tmp_p
     assert projection["command"]["expiration_reason"] == "ttl_expired"
 
 
+def test_dedicated_safe_stop_route_is_no_lease_and_preserves_queue_semantics(tmp_path):
+    enrolled = _enrolled(tmp_path)
+    operator = _operator("operate_run")
+
+    status, queued = evolver_controller.dispatch(
+        "POST", "/api/evolver/controllers/edge-a/safe-stop",
+        {"idempotency_key": "route-safe-stop"}, operator=operator, state_root=tmp_path,
+    )
+
+    assert status == HTTPStatus.ACCEPTED
+    command = queued["command"]
+    assert command["operation"] == "safe_stop"
+    assert command["controller_generation"] == enrolled["binding"]["controller_generation"]
+    assert command["requested_by"] == "alice"
+    assert command["disposition"] == "queued"
+    assert command.get("physical_actuation_verified") is None
+
+
+def test_dedicated_safe_stop_route_allows_foreign_lease_without_using_it(tmp_path):
+    _enrolled(tmp_path)
+    status, lease = evolver_controller.dispatch(
+        "POST", "/api/evolver/controllers/edge-a/manual-control-lease", {"ttl_seconds": 60},
+        operator=_operator("operate_run"), state_root=tmp_path,
+    )
+    assert status == HTTPStatus.CREATED
+    bob = evolver_controller.OperatorIdentity("bob", "test", frozenset({"operate_run"}))
+
+    status, queued = evolver_controller.dispatch(
+        "POST", "/api/evolver/controllers/edge-a/safe-stop", {},
+        operator=bob, state_root=tmp_path,
+    )
+
+    assert status == HTTPStatus.ACCEPTED
+    assert queued["command"]["disposition"] == "queued"
+    assert queued["command"]["requested_by"] == "bob"
+    assert "lease_id" not in queued["command"]
+    assert queued["command"].get("lease_token") is None
+    assert lease["lease"]["holder"] == "alice"
+
+
 def test_manual_commands_are_fenced_when_their_lease_is_revoked(tmp_path):
     enrolled = _enrolled(tmp_path)
     operator = _operator("operate_run")

@@ -162,6 +162,46 @@ def test_adapter_exposes_bounded_simulator_safe_stir(tmp_path):
     assert status == HTTPStatus.BAD_REQUEST
 
 
+def test_adapter_exposes_dedicated_safe_stop_without_a_lease(tmp_path):
+    adapter, enrolled = _adapter(tmp_path)
+    operator = _operator("operate_run")
+
+    status, queued = adapter.dispatch("evolver.controllers.safe_stop", {
+        "controller_id": "edge-a", "idempotency_key": "safe-stop-1",
+    }, operator=operator)
+
+    assert status == HTTPStatus.ACCEPTED
+    command = queued["command"]
+    assert command["operation"] == "safe_stop"
+    assert command["command_kind"] == "emergency_safe_stop"
+    assert command["controller_generation"] == enrolled["binding"]["controller_generation"]
+    assert command["requested_by"] == "alice"
+    assert command["disposition"] == "queued"
+    assert command.get("physical_actuation_verified") is None
+
+
+def test_dedicated_safe_stop_rejects_manual_command_parameters(tmp_path):
+    adapter, _ = _adapter(tmp_path)
+
+    status, response = adapter.dispatch("evolver.controllers.safe_stop", {
+        "controller_id": "edge-a", "target": {"instrument_id": "heater-a"},
+    }, operator=_operator("operate_run"))
+
+    assert status == HTTPStatus.BAD_REQUEST
+    assert response["kind"] == "BadRequest"
+
+
+def test_dedicated_safe_stop_requires_operate_run(tmp_path):
+    adapter, _ = _adapter(tmp_path)
+
+    status, response = adapter.dispatch("evolver.controllers.safe_stop", {
+        "controller_id": "edge-a",
+    })
+
+    assert status == HTTPStatus.UNAUTHORIZED
+    assert response["kind"] == "OperatorAuthenticationRequired"
+
+
 def test_adapter_routes_recovery_and_resources_through_controller(tmp_path):
     adapter, _ = _adapter(tmp_path)
     operator = _operator("recover_controller", "operate_run")
