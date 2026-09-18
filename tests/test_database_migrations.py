@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import re
 
-from meta_webui_application_backend.database.migrations import configured_migrations
+from evolver_server.persistence.database.migrations import configured_migrations
 
 
 def test_server_default_config_is_self_contained_and_central_only(monkeypatch, tmp_path: Path) -> None:
@@ -25,7 +25,7 @@ def test_server_default_config_is_self_contained_and_central_only(monkeypatch, t
 def test_server_migrations_cover_central_store_relations() -> None:
     root = Path(__file__).parents[1]
     sql = "\n".join(migration.sql for migration in configured_migrations(root, {}))
-    central_store = (root / "src/meta_webui_application_backend/central_store.py").read_text(encoding="utf-8")
+    central_store = (root / "src/evolver_server/central_store.py").read_text(encoding="utf-8")
     relations = set(re.findall(r"evolver\.([a-z_]+)", central_store))
     assert all(f"evolver.{relation}" in sql for relation in relations)
     assert "CREATE SCHEMA IF NOT EXISTS evolver" in sql

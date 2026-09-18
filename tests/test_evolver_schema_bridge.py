@@ -1,7 +1,7 @@
 from pathlib import Path
 import sys
 
-from meta_webui_application_backend.evolver_controller import resolve_definition_bundle
+from evolver_server.evolver_controller import resolve_definition_bundle
 
 
 SCHEMA_TOOLS = Path(__file__).parents[2] / "evolver-schemas" / "tools"

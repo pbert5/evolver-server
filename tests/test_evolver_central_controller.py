@@ -5,11 +5,8 @@ import json
 
 import pytest
 
-from meta_webui_application_backend import evolver_controller
-from meta_webui_application_backend.central_store import JsonBootstrapCentralControllerStore, configured_store
-from meta_webui_application_backend.evolver_edge import EdgeStore, SyncClient
-from meta_webui_application_backend.evolver_edge.hardware import ProbeError, ProbeOutcome
-from meta_webui_application_backend.evolver_edge.hardware_service import poll_once
+from evolver_server import evolver_controller
+from evolver_server.central_store import JsonBootstrapCentralControllerStore, configured_store
 
 
 @pytest.fixture(autouse=True)
@@ -312,141 +309,6 @@ def test_sync_ignores_delayed_hardware_observation(tmp_path, newer_outcome, olde
     assert stored["probe_outcome"] == newer_outcome
     assert stored["observed_at"] == "2026-08-31T12:00:02Z"
 
-
-@pytest.mark.parametrize(("outcome", "connection_state", "action"), [
-    (ProbeOutcome.PERMISSION, "degraded", "inspect_transport_access"),
-    (ProbeOutcome.BUSY, "degraded", "inspect_transport_access"),
-    (ProbeOutcome.MALFORMED, "ambiguous", "inspect_hardware_protocol"),
-    (ProbeOutcome.PROTOCOL, "ambiguous", "inspect_hardware_protocol"),
-    (ProbeOutcome.IDENTITY, "ambiguous", "inspect_hardware_identity"),
-])
-def test_edge_probe_failures_sync_to_the_typed_central_public_projection(
-    tmp_path, outcome, connection_state, action,
-):
-    """Probe diagnostics retain typed outcomes across the real sync boundary."""
-    central_root, edge_root = tmp_path / "central", tmp_path / "edge"
-    _, token = evolver_controller.create_enrollment_token(server_url="https://central", state_root=central_root)
-
-    def transport(url, body, headers, timeout):
-        del timeout
-        if url.endswith("/enroll"):
-            return evolver_controller.enroll(body, state_root=central_root)
-        return evolver_controller.sync(
-            body, credential=headers["authorization"].removeprefix("Bearer "), state_root=central_root,
-        )
-
-    class FailingTransport:
-        port = "/dev/ttyACM0"
-
-        def open(self):
-            pass
-
-        def close(self):
-            pass
-
-        def exchange(self, payload):
-            assert payload == "WHO_ARE_YOU_!"
-            raise ProbeError(outcome, f"raw {outcome.value} exception detail", evidence={"detail": "x" * 1000})
-
-    with EdgeStore(edge_root) as edge:
-        controller_id = edge.identity()["id"]
-        client = SyncClient(edge, transport=transport)
-        enrolled = client.enroll(server="https://central", token=token["enrollment_token"])
-        poll_once(edge, requested_port=None, discover=lambda _: ["/dev/ttyACM0"],
-                  transport_factory=lambda _: FailingTransport())
-        payload = client._batch(inventory=edge.list_instruments())
-        assert payload["hardware_observation"]["probe_outcome"] == outcome.value
-        assert payload["hardware_observation"]["transport_evidence"]["event"] == "probe_failed"
-        assert client.sync_once(inventory=edge.list_instruments()).status == HTTPStatus.OK
-
-    persisted = evolver_controller._read(evolver_controller.state_path(central_root))
-    stored = persisted["controllers"][controller_id]["hardware_observation"]
-    assert stored["probe_outcome"] == outcome.value
-    assert stored["connection_state"] == connection_state
-    assert stored["recommended_action"] == action
-    assert stored["transport"]["kind"] == "usb_serial"
-    assert stored["transport_evidence"]["event"] == "probe_failed"
-    assert len(stored["transport_evidence"]["detail"]) == 256
-    assert "ProbeError" not in repr(stored)
-
-    status, projection = evolver_controller.controllers(controller_id=controller_id, state_root=central_root)
-    assert status == HTTPStatus.OK
-    detected = projection["controller"]["detected_hardware"][0]
-    assert detected["probe_outcome"] == outcome.value
-    assert detected["transport"]["kind"] == "usb_serial"
-    assert detected["transport_evidence"]["event"] == "probe_failed"
-    assert len(detected["diagnostic"]) <= 256
-    assert "ProbeError" not in repr(projection)
-    assert projection["controller"]["binding"]["webui_controller_id"] == enrolled["webui_controller"]["id"]
-
-
-def test_edge_timeout_and_success_ordering_preserves_registered_instrument(tmp_path):
-    """A newer observation replaces evidence, never the durable inventory."""
-    central_root, edge_root = tmp_path / "central", tmp_path / "edge"
-    _, token = evolver_controller.create_enrollment_token(server_url="https://central", state_root=central_root)
-
-    def central_transport(url, body, headers, timeout):
-        del timeout
-        if url.endswith("/enroll"):
-            return evolver_controller.enroll(body, state_root=central_root)
-        return evolver_controller.sync(
-            body, credential=headers["authorization"].removeprefix("Bearer "), state_root=central_root,
-        )
-
-    class TimeoutTransport:
-        port = "/dev/ttyACM0"
-        def open(self): pass
-        def close(self): pass
-        def exchange(self, payload):
-            assert payload == "WHO_ARE_YOU_!"
-            raise ProbeError(ProbeOutcome.TIMEOUT, "timeout", evidence={"detail": "t" * 1000})
-
-    class SuccessTransport:
-        port = "/dev/ttyACM0"
-        def open(self): pass
-        def close(self): pass
-        def exchange(self, payload):
-            if payload == "WHO_ARE_YOU_!":
-                return "MEV|2|MEV-001|1|HELLO|type=minievolver,proto=2,fw=0.2,hw_proto=1,id=MEV-001"
-            if payload == "HW_STATUS_!":
-                return "HW|1|OK|STATUS|sleeves=2,pumps=6,hw_proto=1"
-            if payload.startswith("HW_READ_THERMISTOR,"):
-                return "HW|1|OK|THERMISTOR|channel=0,value=32000"
-            if payload.startswith("HW_READ_PHOTODIODE,"):
-                return "HW|1|OK|PHOTODIODE|channel=0,value=20000"
-            raise AssertionError(payload)
-
-    with EdgeStore(edge_root) as edge:
-        controller_id = edge.identity()["id"]
-        client = SyncClient(edge, transport=central_transport)
-        client.enroll(server="https://central", token=token["enrollment_token"])
-        poll_once(edge, requested_port=None, discover=lambda _: ["/dev/ttyACM0"],
-                  transport_factory=lambda _: TimeoutTransport())
-        timeout_payload = client._batch(inventory=edge.list_instruments())
-        assert timeout_payload["hardware_observation"]["probe_outcome"] == "timeout"
-        client.sync_once(inventory=edge.list_instruments())
-
-        poll_once(edge, requested_port=None, discover=lambda _: ["/dev/ttyACM0"],
-                  transport_factory=lambda _: SuccessTransport())
-        success_payload = client._batch(inventory=edge.list_instruments())
-        assert success_payload["hardware_observation"]["transport_evidence"]["event"] == "connected"
-        client.sync_once(inventory=edge.list_instruments())
-        instrument_id = edge.list_instruments()[0]["id"]
-
-        poll_once(edge, requested_port=None, discover=lambda _: ["/dev/ttyACM0"],
-                  transport_factory=lambda _: TimeoutTransport())
-        assert client._batch(inventory=edge.list_instruments())["hardware_observation"]["probe_outcome"] == "timeout"
-        client.sync_once(inventory=edge.list_instruments())
-
-    status, controller = evolver_controller.controllers(controller_id=controller_id, state_root=central_root)
-    assert status == HTTPStatus.OK
-    observed = controller["controller"]["detected_hardware"][0]
-    assert observed["probe_outcome"] == "timeout"
-    assert observed["transport_evidence"]["event"] == "probe_failed"
-    assert observed["transport"]["kind"] == "usb_serial"
-    instrument_status, instruments = evolver_controller.instruments(state_root=central_root)
-    assert instrument_status == HTTPStatus.OK
-    assert [item["id"] for item in instruments["instruments"]] == [instrument_id]
 
 
 def test_legacy_hardware_projection_does_not_replace_typed_observation(tmp_path):

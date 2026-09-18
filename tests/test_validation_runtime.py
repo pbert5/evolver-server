@@ -1,9 +1,7 @@
 import pytest
-
-from meta_webui_application_backend.evolver_edge import EdgeStore, canonical_digest
-from meta_webui_application_backend.validation_artifact import (AcceptanceCriterion, Comparator, CriterionOutcome,
+from evolver_server.validation_artifact import (AcceptanceCriterion, Comparator, CriterionOutcome,
                                                                  ValidationOutcome)
-from meta_webui_application_backend.validation_runtime import (TemperatureCycle, TemperatureHold,
+from evolver_server.validation_runtime import (TemperatureCycle, TemperatureHold,
                                                                build_validation_artifact, evaluate_criterion,
                                                                temperature_phase)
 
@@ -17,25 +15,6 @@ def test_temperature_phase_is_pure_for_hold_and_cycle():
     assert temperature_phase(cycle, 20) == {"target": 20, "phase_index": 0, "completed_cycles": 1, "complete": False}
     assert temperature_phase(cycle, 40)["complete"] is True
     with pytest.raises(ValueError): temperature_phase(cycle, -1)
-
-
-def test_durable_edge_experiment_run_is_canonical(tmp_path):
-    bundle = {"id": "temperature-hold", "name": "temperature hold", "purpose": "validation",
-              "schema_version": "1", "execution_mode": "declarative_state_machine",
-              "source": {"experiment_id": "temperature-hold", "dataset_revision": "1",
-                          "created_at": "2026-09-04T00:00:00Z"},
-              "resolved_definition": {"content": {}, "media_type": "application/json"},
-              "execution_plan": {"content": {"target": 30}, "media_type": "application/json"},
-              "runtime_parameters": [], "source_metadata": []}
-    bundle["digest"] = canonical_digest(bundle)
-    with EdgeStore(tmp_path) as edge:
-        edge.put_bundle(bundle)
-        edge.create_run(run_id="hold", bundle_id="temperature-hold", instrument_ids=["instrument-a"])
-        run = edge.transition_run(run_id="hold", state="running", based_on_revision=0)
-        assert run["state"] == "running" and run["current_revision"] == 1
-    with EdgeStore(tmp_path) as restarted:
-        assert restarted.run("hold")["current_revision"] == 1
-        assert restarted.events_after("hold")[-1]["event_type"] == "run_started"
 
 
 def test_typed_criteria_aggregate_and_report_missing_evidence():

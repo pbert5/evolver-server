@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 import re
 
-from meta_webui_application_backend.evolver_control import contract
-from meta_webui_application_backend.evolver_control.actions import ACTION_ADAPTERS
+from evolver_server.control import contract
+from evolver_server.control.actions import ACTION_ADAPTERS
 
 
 def test_catalog_exposure_matches_trusted_server_adapters():

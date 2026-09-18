@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from meta_webui_application_backend.central_store import (
+from evolver_server.central_store import (
     CentralStoreConfigurationError,
     PostgresCentralControllerStore,
     configured_store,
@@ -31,7 +31,7 @@ def test_runtime_store_never_uses_json_bootstrap(monkeypatch: pytest.MonkeyPatch
 
 def test_postgres_store_has_no_document_or_broad_mirror_authority() -> None:
     source = Path(PostgresCentralControllerStore.__module__.replace(".", "/") + ".py")
-    source = Path(__file__).parents[1] / "src" / "meta_webui_application_backend" / "central_store.py"
+    source = Path(__file__).parents[1] / "src" / "evolver_server" / "central_store.py"
     text = source.read_text(encoding="utf-8")
 
     assert "evolver.central_state" not in text
@@ -40,7 +40,7 @@ def test_postgres_store_has_no_document_or_broad_mirror_authority() -> None:
 
 
 def test_json_store_is_explicit_legacy_only() -> None:
-    source = Path(__file__).parents[1] / "src" / "meta_webui_application_backend" / "central_store.py"
+    source = Path(__file__).parents[1] / "src" / "evolver_server" / "central_store.py"
     text = source.read_text(encoding="utf-8")
 
     assert "JsonBootstrapCentralControllerStore" in text

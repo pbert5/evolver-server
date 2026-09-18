@@ -3,8 +3,8 @@ from __future__ import annotations
 import io
 from http import HTTPStatus
 
-from meta_webui_application_backend import evolver_controller
-from meta_webui_application_backend.evolver_control import service
+from evolver_server import evolver_controller
+from evolver_server.control import service
 
 
 def test_control_service_proxy_operator_requires_shared_secret_and_filters_permissions(monkeypatch):
@@ -101,8 +101,8 @@ def test_gateway_does_not_forward_human_bearer_to_raw_operator_routes(monkeypatc
         captured.update(request.headers)
         return Response()
 
-    monkeypatch.setattr("meta_webui_application_backend.evolver_gateway.urlopen", fake_urlopen)
-    service_module = __import__("meta_webui_application_backend.evolver_gateway", fromlist=["dispatch"])
+    monkeypatch.setattr("evolver_server.evolver_gateway.urlopen", fake_urlopen)
+    service_module = __import__("evolver_server.evolver_gateway", fromlist=["dispatch"])
     service_module.dispatch("POST", "/api/evolver/runs/run-a/commands", {},
                             authorization="Bearer human-token",
                             operator=evolver_controller.OperatorIdentity("alice", "webui_gateway", frozenset({"operate_run"})))

@@ -4,7 +4,7 @@ from contextlib import contextmanager
 
 import pytest
 
-import meta_webui_application_backend.evolver_history as history
+import evolver_server.evolver_history as history
 
 
 class FakeCursor:

@@ -4,8 +4,8 @@ from http import HTTPStatus
 
 import pytest
 
-from meta_webui_application_backend import evolver_controller
-from meta_webui_application_backend.evolver_control.actions import ACTION_ADAPTERS, UnknownAction, dispatch
+from evolver_server import evolver_controller
+from evolver_server.control.actions import ACTION_ADAPTERS, UnknownAction, dispatch
 
 
 APPROVED_CALIBRATION_ACTIONS = {
