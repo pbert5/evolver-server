@@ -7,6 +7,7 @@ the general application API.
 from __future__ import annotations
 
 import hmac
+import argparse
 import json
 import os
 from http import HTTPStatus
@@ -185,7 +186,21 @@ class EvolverControlHandler(BaseHTTPRequestHandler):
         print("[evolver-control] " + format % args)
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="evolver-control")
+    commands = parser.add_subparsers(dest="command")
+    importer = commands.add_parser("import-legacy-state", help="one-way import of a historical JSON state document")
+    importer.add_argument("--source", required=True, type=str)
+    importer.add_argument("--dry-run", action="store_true")
+    args = parser.parse_args(argv)
+    if args.command == "import-legacy-state":
+        from evolver_server.persistence.legacy_import import import_legacy_state
+
+        url = os.environ.get("META_WEBUI_INTERFACE_DATABASE_URL") or os.environ.get("DATABASE_URL")
+        if not url:
+            parser.error("DATABASE_URL is required for legacy import")
+        print(json.dumps(import_legacy_state(args.source, url=url, dry_run=args.dry_run), sort_keys=True))
+        return 0
     host = os.environ.get("META_WEBUI_EVOLVER_CONTROL_HOST", "127.0.0.1")
     port = int(os.environ.get("META_WEBUI_EVOLVER_CONTROL_PORT", "18087"))
     server = ThreadingHTTPServer((host, port), EvolverControlHandler)
@@ -197,7 +212,8 @@ def main() -> None:
         print("\nStopping eVOLVER Control Plane.")
     finally:
         server.server_close()
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

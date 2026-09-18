@@ -1,0 +1,1 @@
+"""Native server persistence namespace."""

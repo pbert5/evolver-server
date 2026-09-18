@@ -1,10 +1,9 @@
 """Durable central-side enrollment and synchronization for eVOLVER edges.
 
-This deliberately uses a small JSON state file rather than the application
-database: controller enrollment must survive a WebUI process restart even in a
-minimal development deployment.  Production deployments may put the state
-root on their persistent volume.  The file contains credential *digests*, never
-the credentials returned to an edge at enrollment time.
+Production persistence is provided by the normalized PostgreSQL repository.
+The optional ``state_root`` argument is retained only for explicit tests and
+legacy migration tooling; it is not selected from production environment
+configuration.
 """
 from __future__ import annotations
 
@@ -202,7 +201,7 @@ def _digest(secret: str) -> str:
 
 
 def state_path(state_root: Path | None = None) -> Path:
-    root = state_root or Path(os.environ.get(STATE_ROOT_ENV, ".meta-webui-evolver-state"))
+    root = state_root or Path(".meta-webui-evolver-state")
     path = root / "central-controller.json"
     if state_root is not None:
         _EXPLICIT_STATE_PATHS.add(path)
@@ -2740,20 +2739,20 @@ def dispatch(method: str, path: str, body: Any, *, query: str = "", authorizatio
         return calibrations(calibration_id=suffix, state_root=state_root) if method == "GET" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
     if path.startswith("/api/evolver/interventions/") and path.endswith("/complete"):
         intervention_id = path.removeprefix("/api/evolver/interventions/").removesuffix("/complete").strip("/")
-        return complete_intervention(intervention_id, body, operator=operator) if method == "POST" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
+        return complete_intervention(intervention_id, body, operator=operator, state_root=state_root) if method == "POST" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
     if path == "/api/evolver/instruments":
-        return instruments() if method == "GET" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
+        return instruments(state_root=state_root) if method == "GET" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
     if path == "/api/evolver/maintenance":
-        return maintenance() if method == "GET" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
+        return maintenance(state_root=state_root) if method == "GET" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
     if path.startswith("/api/evolver/instruments/"):
         if path.endswith("/name"):
             instrument_id = path.removeprefix("/api/evolver/instruments/").removesuffix("/name").strip("/")
-            return rename_entity("instruments", instrument_id, body.get("name") if isinstance(body, dict) else None, operator=operator) if method == "POST" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
-        return instruments(instrument_id=path.rsplit("/", 1)[-1]) if method == "GET" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
+            return rename_entity("instruments", instrument_id, body.get("name") if isinstance(body, dict) else None, operator=operator, state_root=state_root) if method == "POST" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
+        return instruments(instrument_id=path.rsplit("/", 1)[-1], state_root=state_root) if method == "GET" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
     if path == "/api/evolver/runs":
-        return runs() if method == "GET" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
+        return runs(state_root=state_root) if method == "GET" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
     if path == "/api/evolver/controllers":
-        return controllers() if method == "GET" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
+        return controllers(state_root=state_root) if method == "GET" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
     if path == "/api/evolver/enrollment-tokens":
         if method != "POST":
             return HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed")
@@ -2762,7 +2761,7 @@ def dispatch(method: str, path: str, body: Any, *, query: str = "", authorizatio
             return denied
         body = body if isinstance(body, dict) else {}
         return create_enrollment_token(server_url=body.get("server_url"), endpoint_id=body.get("endpoint_id"), ttl_seconds=body.get("ttl_seconds", DEFAULT_TOKEN_TTL_SECONDS),
-                                       purpose=body.get("purpose", "enrollment"), release_binding=body.get("release_binding"))
+                                       purpose=body.get("purpose", "enrollment"), release_binding=body.get("release_binding"), state_root=state_root)
     if path == "/api/evolver/controllers/enroll":
         return enroll(body, state_root=state_root) if method == "POST" else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
     if path == "/api/evolver/controllers/handoff/release":
@@ -2888,6 +2887,6 @@ def dispatch(method: str, path: str, body: Any, *, query: str = "", authorizatio
             if denied:
                 return denied
             return mutate_run(suffix.removesuffix("/commands").rstrip("/"), body,
-                              requested_by=operator.subject, auth_source=operator.source)
-        return runs(run_id=suffix) if method == "GET" and suffix else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
+                              requested_by=operator.subject, auth_source=operator.source, state_root=state_root)
+        return runs(run_id=suffix, state_root=state_root) if method == "GET" and suffix else (HTTPStatus.METHOD_NOT_ALLOWED, _error("method not allowed", "MethodNotAllowed"))
     return HTTPStatus.NOT_FOUND, _error("not found", "NotFound")
