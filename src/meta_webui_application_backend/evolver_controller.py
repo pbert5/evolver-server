@@ -40,7 +40,6 @@ MAX_SYNC_RECORDS_PER_BATCH = 100
 MAX_RUN_PROJECTION = 500
 _LOCK = threading.RLock()
 _COMMAND_CONDITION = threading.Condition(_LOCK)
-_STATE_BACKENDS: dict[int, tuple[CentralControllerStore, int]] = {}
 _EXPLICIT_STATE_PATHS: set[Path] = set()
 _TERMINAL_COMMAND_DISPOSITIONS = frozenset({
     "completed",
@@ -56,6 +55,13 @@ _TERMINAL_COMMAND_DISPOSITIONS = frozenset({
     "rejected_lease",
     "quarantined",
 })
+
+
+class _LoadedState(dict[str, Any]):
+    def __init__(self, value: Mapping[str, Any], *, store: CentralControllerStore, revision: int) -> None:
+        super().__init__(value)
+        self.store = store
+        self.revision = revision
 
 
 def resolve_definition_bundle(
@@ -214,9 +220,8 @@ def _read(path: Path) -> dict[str, Any]:
 
 
 def _write(path: Path, value: dict[str, Any]) -> None:
-    backend = _STATE_BACKENDS.pop(id(value), None)
-    if backend is not None:
-        backend[0].save(value, backend[1])
+    if isinstance(value, _LoadedState):
+        value.store.save(value, value.revision)
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".tmp")
@@ -245,7 +250,7 @@ def _state(path: Path) -> dict[str, Any]:
     # using JSON after PostgreSQL is configured.
     store = configured_store(json_path=path, explicit_state_root=path in _EXPLICIT_STATE_PATHS)
     result, revision = store.load()
-    _STATE_BACKENDS[id(result)] = (store, revision)
+    result = _LoadedState(result, store=store, revision=revision)
     _identity(result)
     result.setdefault("enrollment_tokens", {})
     result.setdefault("controllers", {})
