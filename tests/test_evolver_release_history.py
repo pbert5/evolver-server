@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from meta_webui_application_backend.evolver_release_history import (
+from evolver_server.evolver_release_history import (
     Deployment,
     Release,
     ReleaseHistoryError,
@@ -66,7 +66,7 @@ def test_rollback_candidate_requires_registered_release() -> None:
 def test_release_history_writer_is_append_only_in_current_split() -> None:
     # The extracted server owns the persistence adapter; the old WebUI SQL
     # migration is deliberately not part of this repository.
-    source = (Path(__file__).parents[1] / "src/meta_webui_application_backend/evolver_release_history.py").read_text()
+    source = (Path(__file__).parents[1] / "src/evolver_server/evolver_release_history.py").read_text()
     assert "def register_release" in source
     assert "UPDATE evolver.release_history" not in source
     assert "DELETE FROM evolver.release_history" not in source

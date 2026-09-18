@@ -1,0 +1,7 @@
+# Editing legend: [FREE] deployment-managed endpoint configuration.
+#
+# Keep the checked-in default empty.  A controller-reachable address is a
+# property of the deployment network and must be supplied by the deployment
+# environment through META_WEBUI_EVOLVER_CONTROLLER_ENDPOINTS after it has
+# been verified from the controller.
+controller_endpoints: []
