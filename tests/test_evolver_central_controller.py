@@ -164,6 +164,24 @@ def test_existing_json_install_is_a_one_time_bootstrap_source(tmp_path, monkeypa
     assert isinstance(configured_store(json_path=path, explicit_state_root=True), JsonBootstrapCentralControllerStore)
 
 
+def test_unmanaged_compatibility_state_cannot_alias_stale_managed_provenance(tmp_path, monkeypatch):
+    root_a = tmp_path / "root-a"
+    root_b = tmp_path / "root-b"
+    path_a = evolver_controller.state_path(root_a)
+    path_b = evolver_controller.state_path(root_b)
+    evolver_controller._write(path_a, {"root": "a"})
+    evolver_controller._write(path_b, {"root": "b"})
+
+    monkeypatch.setattr(evolver_controller, "id", lambda value: 7, raising=False)
+    evolver_controller._state(path_a)
+    unmanaged = evolver_controller._read(path_b)
+    unmanaged["mutation"] = "belongs-to-b"
+    evolver_controller._write(path_b, unmanaged)
+
+    assert evolver_controller._read(path_a) == {"root": "a"}
+    assert evolver_controller._read(path_b) == {"root": "b", "mutation": "belongs-to-b"}
+
+
 def test_authenticated_sync_is_fenced_deduplicated_and_persistent(tmp_path):
     _, token = evolver_controller.create_enrollment_token(server_url="https://webui:18086", state_root=tmp_path)
     _, enrolled = evolver_controller.enroll({"controller_id": "edge-a", "enrollment_token": token["enrollment_token"]}, state_root=tmp_path)
