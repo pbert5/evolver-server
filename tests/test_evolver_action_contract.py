@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 import re
 
-from meta_webui_application_backend.evolver_control import contract
-from meta_webui_application_backend.evolver_control.actions import ACTION_ADAPTERS
+from evolver_server.control import contract
+from evolver_server.control.actions import ACTION_ADAPTERS
 
 
 def test_catalog_exposure_matches_trusted_server_adapters():
@@ -15,7 +15,7 @@ def test_catalog_exposure_matches_trusted_server_adapters():
 
 def test_default_catalog_path_uses_the_integrated_checkout(monkeypatch):
     monkeypatch.delenv("EVOLVER_ACTION_CATALOG", raising=False)
-    expected = Path(__file__).parents[2] / "metactl/applications/evolver/actions.json"
+    expected = Path(__file__).parents[3] / "metactl/applications/evolver/actions.json"
     assert contract.catalog_path() == expected
     assert contract.catalog_path().is_file()
 
