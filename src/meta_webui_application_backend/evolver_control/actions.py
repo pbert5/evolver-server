@@ -43,6 +43,7 @@ ACTION_ADAPTERS = {
     "evolver.controllers.manual.lease.emergency_release": "manual_lease_emergency_release",
     "evolver.controllers.manual.command": "manual_command",
     "evolver.controllers.manual.stir": "manual_stir",
+    "evolver.controllers.safe_stop": "safe_stop",
     "evolver.controllers.recovery.request": "recovery",
     "evolver.controllers.recovery.status": "recovery",
     "evolver.controllers.recovery.diff": "recovery_diff",
@@ -179,6 +180,13 @@ def dispatch(action: str, parameters: Mapping[str, Any] | None = None, *,
             body.setdefault("channel", 0)
             body.setdefault("level", 1)
         return evolver_controller.manual_control_command(str(controller_id), body, operator=operator, state_root=state_root)
+    if action == "safe_stop":
+        if set(params) - {"controller_id", "idempotency_key"}:
+            return HTTPStatus.BAD_REQUEST, {"error": "safe_stop accepts only controller_id and idempotency_key", "kind": "BadRequest"}
+        return evolver_controller.safe_stop_command(
+            str(controller_id), {key: params[key] for key in ("idempotency_key",) if key in params},
+            operator=operator, state_root=state_root,
+        )
 
     if action in {"run_command", "evolver.run_command", "pause_run", "resume_run", "stop_run"}:
         run_id = str(params.get("run_id", ""))
