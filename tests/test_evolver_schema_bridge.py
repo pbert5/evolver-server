@@ -1,12 +1,5 @@
-from pathlib import Path
-import sys
-
 from meta_webui_application_backend.evolver_controller import resolve_definition_bundle
-
-
-SCHEMA_TOOLS = Path(__file__).parents[2] / "evolver-schemas" / "tools"
-sys.path.insert(0, str(SCHEMA_TOOLS))
-from compiler import compile_definition  # noqa: E402
+from evolver_schemas import compile_definition
 
 
 def test_server_resolves_schema_compiler_bundle_for_edge_execution():
