@@ -107,14 +107,16 @@ def test_dedicated_safe_stop_route_allows_foreign_lease_without_using_it(tmp_pat
         operator=_operator("operate_run"), state_root=tmp_path,
     )
     assert status == HTTPStatus.CREATED
+    bob = evolver_controller.OperatorIdentity("bob", "test", frozenset({"operate_run"}))
 
     status, queued = evolver_controller.dispatch(
         "POST", "/api/evolver/controllers/edge-a/safe-stop", {},
-        operator=_operator("operate_run"), state_root=tmp_path,
+        operator=bob, state_root=tmp_path,
     )
 
     assert status == HTTPStatus.ACCEPTED
     assert queued["command"]["disposition"] == "queued"
+    assert queued["command"]["requested_by"] == "bob"
     assert "lease_id" not in queued["command"]
     assert queued["command"].get("lease_token") is None
     assert lease["lease"]["holder"] == "alice"
