@@ -85,7 +85,7 @@ def test_trusted_perimeter_identity_authorizes_only_its_declared_permissions(tmp
     operator = evolver_controller.operator_from_headers({"X-Verified-Operator": "alice"})
     assert operator is not None and operator.subject == "alice"
     created, token = evolver_controller.dispatch(
-        "POST", "/api/evolver/enrollment-tokens", {"server_url": "https://webui.example"}, operator=operator,
+        "POST", "/api/evolver/enrollment-tokens", {"server_url": "https://webui.example"}, operator=operator, state_root=tmp_path,
     )
     assert created == HTTPStatus.CREATED
     enrolled, response = evolver_controller.enroll(
@@ -99,7 +99,7 @@ def test_trusted_perimeter_identity_authorizes_only_its_declared_permissions(tmp
     )
     assert synced == HTTPStatus.OK
     queued, command = evolver_controller.dispatch(
-        "POST", "/api/evolver/runs/run-a/commands", {"action": "pause", "expected_revision": 1}, operator=operator,
+        "POST", "/api/evolver/runs/run-a/commands", {"action": "pause", "expected_revision": 1}, operator=operator, state_root=tmp_path,
     )
     assert queued == HTTPStatus.ACCEPTED
     assert command["command"]["requested_by"] == "alice"
@@ -578,13 +578,13 @@ def test_instrument_and_maintenance_projections_are_read_only_and_bounded(tmp_pa
                        "transport": {"path": "/dev/ttyACM0"}, "vial_positions": [{"id": "vial-a", "position_index": 0}]}],
     }, credential=enrolled["credential"], state_root=tmp_path)
     assert status == HTTPStatus.OK
-    inventory_status, inventory = evolver_controller.dispatch("GET", "/api/evolver/instruments", None)
+    inventory_status, inventory = evolver_controller.dispatch("GET", "/api/evolver/instruments", None, state_root=tmp_path)
     assert inventory_status == HTTPStatus.OK
     assert inventory["instruments"][0]["controller_id"] == "edge-a"
     assert inventory["instruments"][0]["vial_positions"][0]["id"] == "vial-a"
-    detail_status, detail = evolver_controller.dispatch("GET", "/api/evolver/instruments/instrument-a", None)
+    detail_status, detail = evolver_controller.dispatch("GET", "/api/evolver/instruments/instrument-a", None, state_root=tmp_path)
     assert detail_status == HTTPStatus.OK and detail["instrument"]["source"] == "physical"
-    maintenance_status, maintenance = evolver_controller.dispatch("GET", "/api/evolver/maintenance", None)
+    maintenance_status, maintenance = evolver_controller.dispatch("GET", "/api/evolver/maintenance", None, state_root=tmp_path)
     assert maintenance_status == HTTPStatus.OK
     assert maintenance["maintenance"][0]["software_release"] == "1.2.3"
     assert "credential" not in repr(inventory)
