@@ -63,6 +63,17 @@ ACTION_ADAPTERS = {
     "evolver.experiments.describe": "experiment_describe",
     "evolver.experiments.plan": "experiment_plan",
     "evolver.release.build": "release_build",
+    "evolver.calibrations.list": "calibrations",
+    "evolver.calibrations.show": "calibrations",
+    "evolver.calibrations.sessions.create": "calibration_create",
+    "evolver.calibrations.sessions.observation": "calibration_observation",
+    "evolver.calibrations.sessions.fit": "calibration_fit",
+    "evolver.calibrations.sessions.accept": "calibration_accept",
+    "evolver.calibrations.sessions.cancel": "calibration_cancel",
+    "evolver.calibrations.sessions.capture": "calibration_capture_observation",
+    "evolver.calibrations.artifacts.deliver": "calibration_deliver",
+    "evolver.calibrations.artifacts.supersede": "calibration_supersede",
+    "evolver.calibrations.artifacts.invalidate": "calibration_invalidate",
 }
 
 
@@ -106,6 +117,9 @@ def dispatch(action: str, parameters: Mapping[str, Any] | None = None, *,
         return evolver_controller.edge_facts(controller_id=str(params.get("controller_id", "")) or None,
                                              run_id=str(params.get("run_id", "")) or None,
                                              kind=action, limit=params.get("limit", 500), state_root=state_root)
+    if action == "calibrations":
+        return evolver_controller.calibrations(
+            calibration_id=params.get("calibration_id"), state_root=state_root)
     if action in {"controller_freshness", "evolver.controller_freshness"}:
         return evolver_controller.controller_freshness(controller_id=params.get("controller_id"), state_root=state_root)
     if action in {"recovery", "recovery_manifest", "evolver.recovery"}:
@@ -210,6 +224,32 @@ def dispatch(action: str, parameters: Mapping[str, Any] | None = None, *,
     if action == "release_build":
         from ..server_release_actions import release_build
         return release_build(body, operator=operator)
+
+    if action == "calibration_create":
+        return evolver_controller.create_calibration_session(
+            body, operator=operator, state_root=state_root)
+    if action in {"calibration_observation", "calibration_fit", "calibration_accept", "calibration_cancel"}:
+        mutation = action.removeprefix("calibration_")
+        return evolver_controller.calibration_session_mutation(
+            str(params.get("session_id", "")), mutation, body,
+            operator=operator, state_root=state_root)
+    if action == "calibration_capture_observation":
+        return evolver_controller.capture_latest_observation(
+            str(params.get("session_id", "")), body,
+            operator=operator, state_root=state_root)
+    if action == "calibration_deliver":
+        return evolver_controller.deliver_calibration_artifact(
+            str(params.get("artifact_id", "")), operator=operator,
+            request_id=body.get("request_id"), state_root=state_root)
+    if action == "calibration_supersede":
+        return evolver_controller.supersede_calibration_artifact(
+            str(params.get("artifact_id", "")),
+            superseding_artifact_id=str(body.get("superseding_artifact_id", "")),
+            operator=operator, state_root=state_root)
+    if action == "calibration_invalidate":
+        return evolver_controller.invalidate_calibration_artifact(
+            str(params.get("artifact_id", "")), reason=str(body.get("reason", "")),
+            operator=operator, state_root=state_root)
 
     raise UnknownAction(f"unknown central eVOLVER action: {action}")
 
