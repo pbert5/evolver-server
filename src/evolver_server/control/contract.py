@@ -1,66 +1,98 @@
-"""Read-only projection of the canonical operator action catalog.
-
-The catalog is data, never executable code.  This module only resolves a
-validated method/path to a stable action id; trusted Python adapters remain in
-``actions.py``.
-"""
+"""Validated, packaged operator action contract and deterministic export."""
 from __future__ import annotations
 
 import json
-from pathlib import Path
+import os
 import re
+from importlib.resources import files
 from typing import Any, Mapping
 
 from .actions import ACTION_ADAPTERS
 
-
-def catalog_path() -> Path:
-    configured = __import__("os").environ.get("EVOLVER_ACTION_CATALOG")
-    if configured:
-        return Path(configured)
-    relative_catalog = Path("metactl") / "applications" / "evolver" / "actions.json"
-    source_path = Path(__file__).resolve()
-    for checkout_root in source_path.parents:
-        candidate = checkout_root / relative_catalog
-        if candidate.is_file():
-            return candidate
-    # Keep the failure actionable if a packaged/standalone checkout omitted
-    # the canonical catalog.  The explicit environment override above is the
-    # supported deployment escape hatch for that layout.
-    return source_path.parents[5] / relative_catalog
+_RESOURCE = "evolver_server/contracts/operator_actions.json"
 
 
-def operator_actions() -> dict[str, dict[str, Any]]:
-    document = json.loads(catalog_path().read_text(encoding="utf-8"))
-    actions = {item["id"]: item for item in document.get("actions", [])}
+def catalog_source() -> str:
+    return _RESOURCE
+
+
+def _document() -> dict[str, Any]:
+    if os.environ.get("EVOLVER_ACTION_CATALOG"):
+        raise ValueError("EVOLVER_ACTION_CATALOG override is unsupported")
+    try:
+        raw = files("evolver_server").joinpath("contracts/operator_actions.json").read_text(encoding="utf-8")
+    except (FileNotFoundError, ModuleNotFoundError, OSError) as exc:
+        raise ValueError("packaged operator action contract is unavailable") from exc
+    try:
+        document = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError("packaged operator action contract is malformed") from exc
+    if not isinstance(document, dict) or not isinstance(document.get("actions"), list):
+        raise ValueError("packaged operator action contract has invalid shape")
+    if not isinstance(document.get("revision"), str) or not document["revision"]:
+        raise ValueError("packaged operator action contract has no revision")
+    if not isinstance(document.get("api", {}), dict):
+        raise ValueError("packaged operator action contract has invalid api shape")
+    for item in document["actions"]:
+        if not isinstance(item, dict) or not isinstance(item.get("id"), str) or not isinstance(item.get("title"), str):
+            raise ValueError("packaged operator action contract has invalid action shape")
+        if item.get("status") not in {"implemented", "planned"}:
+            raise ValueError(f"invalid operator action status: {item.get('id')}")
+        if not isinstance(item.get("permissions", []), list) or not isinstance(item.get("safety", {}), dict):
+            raise ValueError(f"invalid operator action metadata: {item['id']}")
+    return document
+
+
+def catalog_document() -> dict[str, Any]:
+    return _document()
+
+
+def _callable_actions(document: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    actions = {item["id"]: item for item in document["actions"] if item.get("status") == "implemented"}
     result = {}
     for action_id, binding in document.get("api", {}).items():
         if action_id not in actions or not isinstance(binding, Mapping):
             raise ValueError(f"invalid operator action contract: {action_id}")
-        result[action_id] = {**actions[action_id], "api": dict(binding)}
+        result[action_id] = {**actions[action_id], "api": dict(binding), "callable": True}
+    if set(result) != set(actions):
+        raise ValueError("implemented operator actions and api bindings differ")
     return result
 
 
-def catalog_document() -> dict[str, Any]:
-    """Return the validated deployment catalog document for discovery."""
-    return json.loads(catalog_path().read_text(encoding="utf-8"))
+def operator_actions() -> dict[str, dict[str, Any]]:
+    return _callable_actions(_document())
 
 
 def required_permission(action_id: str) -> str | None:
     permissions = operator_actions()[action_id].get("permissions", [])
     if not permissions:
         return None
-    # The catalog names the eVOLVER read capability explicitly; the WebUI
-    # access model owns its application-wide equivalent.
     return {"evolver:read": "view"}.get(permissions[0], permissions[0])
 
 
 def manifest() -> dict[str, Any]:
-    return {"version": json.loads(catalog_path().read_text(encoding="utf-8")).get("version"),
-            "actions": [{"id": action_id, "title": action["title"], "method": action["api"]["method"],
-                         "path": action["api"]["path"], "permissions": list(action.get("permissions", [])),
-                         "safety": action.get("safety", {})}
-                        for action_id, action in operator_actions().items()]}
+    document = _document()
+    callable_actions = _callable_actions(document)
+    actions = []
+    for item in document["actions"]:
+        action_id = item["id"]
+        binding = callable_actions.get(action_id, {}).get("api")
+        actions.append({
+            "id": action_id,
+            "title": item["title"],
+            "status": item["status"],
+            "callable": binding is not None,
+            "method": binding.get("method") if binding else None,
+            "path": binding.get("path") if binding else None,
+            "permissions": list(item.get("permissions", [])),
+            "safety": item.get("safety", {}),
+        })
+    return {"version": document["version"], "revision": document["revision"], "actions": actions}
+
+
+def export_contract() -> str:
+    """Serialize the packaged contract canonically for downstream snapshots."""
+    return json.dumps(_document(), sort_keys=True, separators=(",", ":")) + "\n"
 
 
 def match(method: str, path: str, requested_action: str | None = None) -> tuple[str, dict[str, str]] | None:
@@ -108,5 +140,12 @@ def validate_runtime_contract() -> None:
     actions = operator_actions()
     adapters = set(ACTION_ADAPTERS)
     missing = set(actions) - adapters
+    extra = adapters - set(actions)
     if missing:
         raise ValueError(f"operator actions without trusted adapters: {sorted(missing)}")
+    if extra:
+        raise ValueError(f"trusted adapters without operator actions: {sorted(extra)}")
+
+
+if __name__ == "__main__":
+    print(export_contract(), end="")

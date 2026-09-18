@@ -1,0 +1,2806 @@
+{
+  "version": "1.0.0",
+  "deployment_index": [
+    "evolver.release.build",
+    "evolver.edge.status",
+    "evolver.edge.controllers",
+    "evolver.edge.instruments",
+    "evolver.edge.runs",
+    "evolver.controllers.list",
+    "evolver.controllers.show",
+    "evolver.controllers.freshness",
+    "evolver.controllers.add",
+    "evolver.controllers.refresh",
+    "evolver.controllers.rescan",
+    "evolver.controllers.archive",
+    "evolver.controllers.restore",
+    "evolver.controllers.release.set",
+    "evolver.controllers.commands.list",
+    "evolver.controllers.commands.show",
+    "evolver.controllers.manual.lease",
+    "evolver.controllers.manual.lease.show",
+    "evolver.controllers.manual.lease.revoke",
+    "evolver.controllers.manual.lease.emergency_release",
+    "evolver.controllers.manual.command",
+    "evolver.controllers.manual.stir",
+    "evolver.controllers.safe_stop",
+    "evolver.controllers.measurements",
+    "evolver.controllers.telemetry",
+    "evolver.controllers.activities",
+    "evolver.controllers.events",
+    "evolver.controllers.evidence",
+    "evolver.controllers.logs",
+    "evolver.controllers.recovery.request",
+    "evolver.controllers.recovery.status",
+    "evolver.controllers.recovery.diff",
+    "evolver.instruments.list",
+    "evolver.instruments.show",
+    "evolver.runs.list",
+    "evolver.runs.show",
+    "evolver.runs.pause",
+    "evolver.runs.resume",
+    "evolver.runs.stop",
+    "evolver.experiments.validate",
+    "evolver.experiments.describe",
+    "evolver.experiments.plan",
+    "evolver.calibrations.list",
+    "evolver.calibrations.show",
+    "evolver.calibrations.sessions.create",
+    "evolver.calibrations.sessions.observation",
+    "evolver.calibrations.sessions.fit",
+    "evolver.calibrations.sessions.accept",
+    "evolver.calibrations.sessions.cancel",
+    "evolver.calibrations.sessions.capture",
+    "evolver.calibrations.artifacts.deliver",
+    "evolver.calibrations.artifacts.supersede",
+    "evolver.calibrations.artifacts.invalidate",
+    "evolver.experiments.enqueue",
+    "evolver.experiments.run",
+    "evolver.run.start",
+    "evolver.run.pause",
+    "evolver.run.stop"
+  ],
+  "api": {
+    "evolver.release.build": {
+      "method": "POST",
+      "path": "/api/evolver/releases/build"
+    },
+    "evolver.controllers.add": {
+      "method": "POST",
+      "path": "/api/evolver/enrollment-tokens"
+    },
+    "evolver.edge.status": {
+      "method": "GET",
+      "path": "/api/evolver/controllers"
+    },
+    "evolver.edge.controllers": {
+      "method": "GET",
+      "path": "/api/evolver/controllers"
+    },
+    "evolver.edge.instruments": {
+      "method": "GET",
+      "path": "/api/evolver/instruments"
+    },
+    "evolver.edge.runs": {
+      "method": "GET",
+      "path": "/api/evolver/runs"
+    },
+    "evolver.controllers.list": {
+      "method": "GET",
+      "path": "/api/evolver/controllers"
+    },
+    "evolver.controllers.show": {
+      "method": "GET",
+      "path": "/api/evolver/controllers/{controller_id}"
+    },
+    "evolver.controllers.freshness": {
+      "method": "GET",
+      "path": "/api/evolver/controllers/{controller_id}/sync-freshness"
+    },
+    "evolver.controllers.refresh": {
+      "method": "POST",
+      "path": "/api/evolver/controllers/{controller_id}/refresh"
+    },
+    "evolver.controllers.rescan": {
+      "method": "POST",
+      "path": "/api/evolver/controllers/{controller_id}/hardware-rescan"
+    },
+    "evolver.controllers.archive": {
+      "method": "POST",
+      "path": "/api/evolver/controllers/{controller_id}/archive"
+    },
+    "evolver.controllers.restore": {
+      "method": "POST",
+      "path": "/api/evolver/controllers/{controller_id}/restore"
+    },
+    "evolver.controllers.release.set": {
+      "method": "POST",
+      "path": "/api/evolver/controllers/{controller_id}/desired-release"
+    },
+    "evolver.controllers.commands.list": {
+      "method": "GET",
+      "path": "/api/evolver/controllers/{controller_id}/commands"
+    },
+    "evolver.controllers.commands.show": {
+      "method": "GET",
+      "path": "/api/evolver/controllers/{controller_id}/commands/{command_id}"
+    },
+    "evolver.controllers.manual.lease": {
+      "method": "POST",
+      "path": "/api/evolver/controllers/{controller_id}/manual-control-lease"
+    },
+    "evolver.controllers.manual.lease.show": {
+      "method": "GET",
+      "path": "/api/evolver/controllers/{controller_id}/manual-control-lease"
+    },
+    "evolver.controllers.manual.lease.revoke": {
+      "method": "POST",
+      "path": "/api/evolver/controllers/{controller_id}/manual-control-lease/revoke"
+    },
+    "evolver.controllers.manual.lease.emergency_release": {
+      "method": "POST",
+      "path": "/api/evolver/controllers/{controller_id}/manual-control-lease/emergency-release"
+    },
+    "evolver.controllers.manual.command": {
+      "method": "POST",
+      "path": "/api/evolver/controllers/{controller_id}/manual-command"
+    },
+    "evolver.controllers.manual.stir": {
+      "method": "POST",
+      "path": "/api/evolver/controllers/{controller_id}/manual-command"
+    },
+    "evolver.controllers.safe_stop": {
+      "method": "POST",
+      "path": "/api/evolver/controllers/{controller_id}/safe-stop"
+    },
+    "evolver.controllers.measurements": {
+      "method": "GET",
+      "path": "/api/evolver/controllers/{controller_id}/measurements"
+    },
+    "evolver.controllers.telemetry": {
+      "method": "GET",
+      "path": "/api/evolver/controllers/{controller_id}/telemetry"
+    },
+    "evolver.controllers.activities": {
+      "method": "GET",
+      "path": "/api/evolver/controllers/{controller_id}/activities"
+    },
+    "evolver.controllers.events": {
+      "method": "GET",
+      "path": "/api/evolver/controllers/{controller_id}/events"
+    },
+    "evolver.controllers.evidence": {
+      "method": "GET",
+      "path": "/api/evolver/controllers/{controller_id}/evidence"
+    },
+    "evolver.controllers.logs": {
+      "method": "GET",
+      "path": "/api/evolver/controllers/{controller_id}/logs"
+    },
+    "evolver.controllers.recovery.request": {
+      "method": "POST",
+      "path": "/api/evolver/controllers/{controller_id}/recovery"
+    },
+    "evolver.controllers.recovery.status": {
+      "method": "GET",
+      "path": "/api/evolver/controllers/{controller_id}/recovery"
+    },
+    "evolver.controllers.recovery.diff": {
+      "method": "GET",
+      "path": "/api/evolver/controllers/{controller_id}/recovery/diff"
+    },
+    "evolver.instruments.list": {
+      "method": "GET",
+      "path": "/api/evolver/instruments"
+    },
+    "evolver.instruments.show": {
+      "method": "GET",
+      "path": "/api/evolver/instruments/{instrument_id}"
+    },
+    "evolver.runs.list": {
+      "method": "GET",
+      "path": "/api/evolver/runs"
+    },
+    "evolver.runs.show": {
+      "method": "GET",
+      "path": "/api/evolver/runs/{run_id}"
+    },
+    "evolver.runs.pause": {
+      "method": "POST",
+      "path": "/api/evolver/runs/{run_id}/commands"
+    },
+    "evolver.runs.resume": {
+      "method": "POST",
+      "path": "/api/evolver/runs/{run_id}/commands"
+    },
+    "evolver.runs.stop": {
+      "method": "POST",
+      "path": "/api/evolver/runs/{run_id}/commands"
+    },
+    "evolver.experiments.validate": {
+      "method": "POST",
+      "path": "/api/evolver/experiments/validate"
+    },
+    "evolver.experiments.describe": {
+      "method": "POST",
+      "path": "/api/evolver/experiments/describe"
+    },
+    "evolver.experiments.plan": {
+      "method": "POST",
+      "path": "/api/evolver/experiments/plan"
+    },
+    "evolver.calibrations.list": {
+      "method": "GET",
+      "path": "/api/evolver/calibrations",
+      "responses": {
+        "200": {
+          "type": "object",
+          "required": [
+            "calibrations",
+            "firmware_supported_procedures"
+          ],
+          "properties": {
+            "calibrations": {
+              "type": "array"
+            },
+            "firmware_supported_procedures": {
+              "type": "array"
+            }
+          }
+        }
+      }
+    },
+    "evolver.calibrations.show": {
+      "method": "GET",
+      "path": "/api/evolver/calibrations/{calibration_id}",
+      "responses": {
+        "200": {
+          "type": "object",
+          "required": [
+            "calibration"
+          ],
+          "properties": {
+            "calibration": {
+              "type": "object"
+            }
+          }
+        },
+        "404": null
+      }
+    },
+    "evolver.calibrations.sessions.create": {
+      "method": "POST",
+      "path": "/api/evolver/calibrations/sessions",
+      "request_schema": {
+        "type": "object",
+        "required": [
+          "calibration_type",
+          "instrument_id"
+        ],
+        "properties": {
+          "calibration_type": {
+            "type": "string",
+            "enum": [
+              "temperature",
+              "pump_flow_rate"
+            ]
+          },
+          "instrument_id": {
+            "type": "string"
+          },
+          "vial_position_id": {
+            "type": "string"
+          },
+          "vial_position": {
+            "type": "string"
+          },
+          "component_id": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "type": "object",
+          "required": [
+            "session"
+          ],
+          "properties": {
+            "session": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    "evolver.calibrations.sessions.observation": {
+      "method": "POST",
+      "path": "/api/evolver/calibrations/sessions/{session_id}/observations",
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "raw_value": {
+            "type": "number"
+          },
+          "reference_value": {
+            "type": "number"
+          },
+          "pulse_duration_ms": {
+            "type": "number"
+          },
+          "delivered_volume_ul": {
+            "type": "number"
+          },
+          "raw_metric": {
+            "type": "string"
+          },
+          "raw_unit": {
+            "type": "string"
+          },
+          "reference_unit": {
+            "type": "string"
+          },
+          "vial_position_id": {
+            "type": "string"
+          },
+          "vial_position": {
+            "type": "string"
+          },
+          "captured_at": {
+            "type": "string"
+          },
+          "source_type": {
+            "type": "string"
+          },
+          "source_record_id": {
+            "type": "string"
+          },
+          "replicate": {
+            "type": "integer"
+          },
+          "operator_note": {
+            "type": "string"
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "type": "object",
+          "required": [
+            "session"
+          ],
+          "properties": {
+            "session": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    "evolver.calibrations.sessions.fit": {
+      "method": "POST",
+      "path": "/api/evolver/calibrations/sessions/{session_id}/fit",
+      "request_schema": {
+        "type": "object",
+        "properties": {}
+      },
+      "responses": {
+        "200": {
+          "type": "object",
+          "required": [
+            "session"
+          ],
+          "properties": {
+            "session": {
+              "type": "object"
+            }
+          }
+        },
+        "422": null
+      }
+    },
+    "evolver.calibrations.sessions.accept": {
+      "method": "POST",
+      "path": "/api/evolver/calibrations/sessions/{session_id}/accept",
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "hardware_fingerprint": {
+            "type": "string"
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "type": "object",
+          "required": [
+            "artifact",
+            "session"
+          ],
+          "properties": {
+            "artifact": {
+              "type": "object"
+            },
+            "session": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    "evolver.calibrations.sessions.cancel": {
+      "method": "POST",
+      "path": "/api/evolver/calibrations/sessions/{session_id}/cancel",
+      "request_schema": {
+        "type": "object",
+        "properties": {}
+      },
+      "responses": {
+        "200": {
+          "type": "object",
+          "required": [
+            "session"
+          ],
+          "properties": {
+            "session": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    "evolver.calibrations.sessions.capture": {
+      "method": "POST",
+      "path": "/api/evolver/calibrations/sessions/{session_id}/capture",
+      "request_schema": {
+        "type": "object",
+        "required": [
+          "reference_value"
+        ],
+        "properties": {
+          "reference_value": {
+            "type": "number"
+          },
+          "reference_unit": {
+            "type": "string"
+          },
+          "raw_metric": {
+            "type": "string"
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "type": "object",
+          "required": [
+            "session"
+          ],
+          "properties": {
+            "session": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    "evolver.calibrations.artifacts.deliver": {
+      "method": "POST",
+      "path": "/api/evolver/calibrations/artifacts/{artifact_id}/deliver",
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string"
+          }
+        }
+      },
+      "responses": {
+        "202": {
+          "type": "object"
+        }
+      }
+    },
+    "evolver.calibrations.artifacts.supersede": {
+      "method": "POST",
+      "path": "/api/evolver/calibrations/artifacts/{artifact_id}/supersede",
+      "request_schema": {
+        "type": "object",
+        "required": [
+          "superseding_artifact_id"
+        ],
+        "properties": {
+          "superseding_artifact_id": {
+            "type": "string"
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "type": "object"
+        }
+      }
+    },
+    "evolver.calibrations.artifacts.invalidate": {
+      "method": "POST",
+      "path": "/api/evolver/calibrations/artifacts/{artifact_id}/invalidate",
+      "request_schema": {
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "type": "object"
+        }
+      }
+    }
+  },
+  "actions": [
+    {
+      "id": "evolver.release.build",
+      "title": "Build a production eVOLVER release",
+      "tags": [
+        "evolver",
+        "release",
+        "mutating"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.release.build"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/server_release_actions.py",
+        "tests": [
+          "tests/test_server_release_actions.py::test_release_build_requires_operator_and_delegates_to_coordinator"
+        ]
+      },
+      "safety": {
+        "risk": "high",
+        "confirmation": "required",
+        "reversible": false
+      },
+      "permissions": [
+        "update_controller"
+      ],
+      "parameters": {
+        "output": {
+          "type": "string",
+          "default": "releases/evolver"
+        },
+        "version": {
+          "type": "string"
+        },
+        "build_timestamp": {
+          "type": "string"
+        },
+        "toolchain_variant": {
+          "type": "string",
+          "enum": [
+            "linux-x86_64-glibc",
+            "linux-x86_64-nixos"
+          ]
+        },
+        "nixos_bossac": {
+          "type": "string"
+        },
+        "nixos_bossac_store_root": {
+          "type": "string"
+        },
+        "arduino_cli": {
+          "type": "string"
+        },
+        "arduino_data": {
+          "type": "string"
+        },
+        "arduino_libraries": {
+          "type": "string"
+        },
+        "python_runtime": {
+          "type": "string"
+        },
+        "validator_python": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.add",
+      "title": "Create controller enrollment",
+      "tags": [
+        "evolver",
+        "controllers",
+        "enrollment"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.add"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_control_plane_operations.py"
+        ]
+      },
+      "safety": {
+        "risk": "medium",
+        "confirmation": "required",
+        "reversible": true
+      },
+      "permissions": [
+        "manage_controller"
+      ],
+      "parameters": {
+        "server_url": {
+          "type": "string"
+        },
+        "endpoint_id": {
+          "type": "string"
+        },
+        "ttl_seconds": {
+          "type": "integer",
+          "default": 900
+        },
+        "purpose": {
+          "type": "string",
+          "default": "enrollment"
+        },
+        "release_binding": {
+          "type": "object"
+        }
+      }
+    },
+    {
+      "id": "evolver.edge.status",
+      "title": "Show central eVOLVER status",
+      "tags": [
+        "evolver",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.edge.status"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "tools/metactl_transport.py",
+        "tests": [
+          "tests/test_metactl.py::test_central_http_transport_binds_route_headers_and_body"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "evolver.edge.controllers",
+      "title": "List central controllers",
+      "tags": [
+        "evolver",
+        "controllers",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.edge.controllers"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "tools/metactl_transport.py",
+        "tests": [
+          "tests/test_metactl.py::test_metactl_read_bindings_use_injected_central_transport"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "evolver.edge.instruments",
+      "title": "List central instruments",
+      "tags": [
+        "evolver",
+        "instruments",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.edge.instruments"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "tools/metactl_transport.py",
+        "tests": [
+          "tests/test_metactl.py::test_metactl_read_bindings_use_injected_central_transport"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "evolver.edge.runs",
+      "title": "List central runs",
+      "tags": [
+        "evolver",
+        "runs",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.edge.runs"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "tools/metactl_transport.py",
+        "tests": [
+          "tests/test_metactl.py::test_metactl_read_bindings_use_injected_central_transport"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "evolver.controllers.list",
+      "title": "List controllers",
+      "tags": [
+        "evolver",
+        "controllers",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.list"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "tools/metactl_transport.py",
+        "tests": [
+          "tests/test_metactl.py::test_central_http_transport_binds_route_headers_and_body"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "evolver.controllers.show",
+      "title": "Show a controller",
+      "tags": [
+        "evolver",
+        "controllers",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.show"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "tools/metactl_transport.py",
+        "tests": [
+          "tests/test_metactl.py::test_central_http_transport_binds_route_headers_and_body"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.freshness",
+      "title": "Show controller freshness",
+      "tags": [
+        "evolver",
+        "controllers",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.freshness"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "tools/metactl_transport.py",
+        "tests": [
+          "tests/test_metactl.py::test_central_http_transport_binds_route_headers_and_body"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.refresh",
+      "title": "Request controller refresh",
+      "tags": [
+        "evolver",
+        "controllers",
+        "mutating"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.refresh"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_central_actions.py::test_adapter_preserves_authorization_and_queued_command_semantics"
+        ]
+      },
+      "safety": {
+        "risk": "medium",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "manage_controller"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.rescan",
+      "title": "Request hardware inventory rescan",
+      "tags": [
+        "evolver",
+        "controllers",
+        "mutating",
+        "read-only-hardware"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.rescan"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_central_actions.py::test_adapter_preserves_authorization_and_queued_command_semantics"
+        ]
+      },
+      "safety": {
+        "risk": "medium",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "manage_controller"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.archive",
+      "title": "Archive a controller",
+      "tags": [
+        "evolver",
+        "controllers",
+        "mutating"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.archive"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_control_plane_operations.py"
+        ]
+      },
+      "safety": {
+        "risk": "medium",
+        "confirmation": "required",
+        "reversible": true
+      },
+      "permissions": [
+        "manage_controller"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.restore",
+      "title": "Restore a controller",
+      "tags": [
+        "evolver",
+        "controllers",
+        "mutating"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.restore"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_control_plane_operations.py"
+        ]
+      },
+      "safety": {
+        "risk": "medium",
+        "confirmation": "required",
+        "reversible": true
+      },
+      "permissions": [
+        "manage_controller"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.release.set",
+      "title": "Set desired controller release",
+      "tags": [
+        "evolver",
+        "controllers",
+        "release",
+        "mutating"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.release.set"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_release_history.py"
+        ]
+      },
+      "safety": {
+        "risk": "high",
+        "confirmation": "required",
+        "reversible": true
+      },
+      "permissions": [
+        "update_controller"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        },
+        "release": {
+          "type": "string",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.commands.list",
+      "title": "List controller commands",
+      "tags": [
+        "evolver",
+        "commands",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.commands.list"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_central_controller.py"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.commands.show",
+      "title": "Show a controller command",
+      "tags": [
+        "evolver",
+        "commands",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.commands.show"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_central_controller.py"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        },
+        "command_id": {
+          "type": "string",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.manual.lease",
+      "title": "Acquire a manual control lease",
+      "tags": [
+        "evolver",
+        "controllers",
+        "manual-control",
+        "mutating"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.manual.lease"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_control_plane_operations.py::test_manual_lease_expiry_revocation_and_emergency_release_are_audited"
+        ]
+      },
+      "safety": {
+        "risk": "high",
+        "confirmation": "required",
+        "reversible": true
+      },
+      "permissions": [
+        "operate_run"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        },
+        "ttl_seconds": {
+          "type": "integer",
+          "default": 900
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.manual.lease.show",
+      "title": "Show the manual control lease",
+      "tags": [
+        "evolver",
+        "controllers",
+        "manual-control",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.manual.lease.show"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_control_plane_operations.py::test_manual_lease_expiry_revocation_and_emergency_release_are_audited"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "operate_run"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.manual.lease.revoke",
+      "title": "Revoke a manual control lease",
+      "tags": [
+        "evolver",
+        "controllers",
+        "manual-control",
+        "mutating"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.manual.lease.revoke"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_control_plane_operations.py::test_manual_lease_expiry_revocation_and_emergency_release_are_audited"
+        ]
+      },
+      "safety": {
+        "risk": "high",
+        "confirmation": "required",
+        "reversible": true
+      },
+      "permissions": [
+        "operate_run"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.manual.lease.emergency_release",
+      "title": "Emergency-release a manual control lease",
+      "tags": [
+        "evolver",
+        "controllers",
+        "manual-control",
+        "mutating"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.manual.lease.emergency_release"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_control_plane_operations.py::test_manual_lease_expiry_revocation_and_emergency_release_are_audited"
+        ]
+      },
+      "safety": {
+        "risk": "high",
+        "confirmation": "required",
+        "reversible": true
+      },
+      "permissions": [
+        "operate_run"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.manual.command",
+      "title": "Queue a manual controller command",
+      "tags": [
+        "evolver",
+        "controllers",
+        "manual-control",
+        "mutating"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.manual.command"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_control_plane_operations.py::test_manual_command_is_durable_fenced_and_expires_before_sync_delivery"
+        ]
+      },
+      "safety": {
+        "risk": "high",
+        "confirmation": "required",
+        "reversible": true
+      },
+      "permissions": [
+        "operate_run"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        },
+        "operation": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "safe_stop",
+            "stir_pulse",
+            "heater_pulse",
+            "pump_pulse"
+          ]
+        },
+        "channel": {
+          "type": "integer"
+        },
+        "duration_ms": {
+          "type": "integer"
+        },
+        "level": {
+          "type": "integer"
+        },
+        "ttl_seconds": {
+          "type": "integer",
+          "default": 15
+        },
+        "idempotency_key": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.manual.stir",
+      "title": "Queue a bounded simulator-safe stir pulse",
+      "tags": [
+        "evolver",
+        "controllers",
+        "manual-control",
+        "stir",
+        "mutating"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.manual.stir"
+      },
+      "evidence": {
+        "kind": "simulator",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_central_actions.py::test_adapter_exposes_bounded_simulator_safe_stir"
+        ]
+      },
+      "safety": {
+        "risk": "medium",
+        "confirmation": "required",
+        "reversible": true
+      },
+      "permissions": [
+        "operate_run"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        },
+        "duration_ms": {
+          "type": "integer",
+          "required": true
+        },
+        "channel": {
+          "type": "integer"
+        },
+        "level": {
+          "type": "integer"
+        },
+        "ttl_seconds": {
+          "type": "integer",
+          "default": 15
+        },
+        "idempotency_key": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.safe_stop",
+      "title": "Queue a central safe-stop intent",
+      "tags": [
+        "evolver",
+        "controllers",
+        "safety",
+        "mutating"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.safe_stop"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_control_plane_operations.py::test_dedicated_safe_stop_route_is_no_lease_and_preserves_queue_semantics"
+        ]
+      },
+      "safety": {
+        "risk": "high",
+        "confirmation": "physical",
+        "reversible": true,
+        "effect": "hardware"
+      },
+      "permissions": [
+        "operate_run"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        },
+        "idempotency_key": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.measurements",
+      "title": "Show controller measurements",
+      "tags": [
+        "evolver",
+        "measurements",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.measurements"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_central_controller.py"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer",
+          "default": 500
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.telemetry",
+      "title": "Show controller telemetry",
+      "tags": [
+        "evolver",
+        "telemetry",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.telemetry"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_central_controller.py"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer",
+          "default": 500
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.activities",
+      "title": "Show controller activities",
+      "tags": [
+        "evolver",
+        "activities",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.activities"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_central_controller.py"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer",
+          "default": 500
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.events",
+      "title": "Show controller events",
+      "tags": [
+        "evolver",
+        "events",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.events"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_central_controller.py"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer",
+          "default": 500
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.evidence",
+      "title": "Show controller evidence",
+      "tags": [
+        "evolver",
+        "evidence",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.evidence"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_central_controller.py"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer",
+          "default": 500
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.logs",
+      "title": "Show controller logs",
+      "tags": [
+        "evolver",
+        "logs",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.logs"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_central_controller.py"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer",
+          "default": 500
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.recovery.request",
+      "title": "Request controller recovery manifest",
+      "tags": [
+        "evolver",
+        "recovery",
+        "mutating"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.recovery.request"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_central_actions.py::test_adapter_routes_recovery_and_resources_through_controller"
+        ]
+      },
+      "safety": {
+        "risk": "medium",
+        "confirmation": "required",
+        "reversible": true
+      },
+      "permissions": [
+        "recover_controller"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.recovery.status",
+      "title": "Show controller recovery status",
+      "tags": [
+        "evolver",
+        "recovery",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.recovery.status"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_central_controller.py"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.controllers.recovery.diff",
+      "title": "Show controller recovery diff",
+      "tags": [
+        "evolver",
+        "recovery",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.controllers.recovery.diff"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_central_controller.py"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.instruments.list",
+      "title": "List instruments",
+      "tags": [
+        "evolver",
+        "instruments",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.instruments.list"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_central_controller.py"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "evolver.instruments.show",
+      "title": "Show an instrument",
+      "tags": [
+        "evolver",
+        "instruments",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.instruments.show"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_central_controller.py"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {
+        "instrument_id": {
+          "type": "string",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.runs.list",
+      "title": "List runs",
+      "tags": [
+        "evolver",
+        "runs",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.runs.list"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_central_controller.py"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {
+        "controller_id": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        }
+      }
+    },
+    {
+      "id": "evolver.runs.show",
+      "title": "Show a run",
+      "tags": [
+        "evolver",
+        "runs",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.runs.show"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_central_controller.py"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {
+        "run_id": {
+          "type": "string",
+          "required": true
+        },
+        "limit": {
+          "type": "integer",
+          "default": 500
+        }
+      }
+    },
+    {
+      "id": "evolver.runs.pause",
+      "title": "Request run pause",
+      "tags": [
+        "evolver",
+        "runs",
+        "mutating"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.runs.pause"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_central_actions.py::test_adapter_preserves_authorization_and_queued_command_semantics"
+        ]
+      },
+      "safety": {
+        "risk": "high",
+        "confirmation": "required",
+        "reversible": true
+      },
+      "permissions": [
+        "operate_run"
+      ],
+      "parameters": {
+        "run_id": {
+          "type": "string",
+          "required": true
+        },
+        "expected_revision": {
+          "type": "integer",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.runs.resume",
+      "title": "Request run resume",
+      "tags": [
+        "evolver",
+        "runs",
+        "mutating"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.runs.resume"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_central_actions.py::test_adapter_preserves_authorization_and_queued_command_semantics"
+        ]
+      },
+      "safety": {
+        "risk": "high",
+        "confirmation": "required",
+        "reversible": true
+      },
+      "permissions": [
+        "operate_run"
+      ],
+      "parameters": {
+        "run_id": {
+          "type": "string",
+          "required": true
+        },
+        "expected_revision": {
+          "type": "integer",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.runs.stop",
+      "title": "Request run stop",
+      "tags": [
+        "evolver",
+        "runs",
+        "mutating"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.runs.stop"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_central_actions.py::test_adapter_preserves_authorization_and_queued_command_semantics"
+        ]
+      },
+      "safety": {
+        "risk": "high",
+        "confirmation": "required",
+        "reversible": true
+      },
+      "permissions": [
+        "operate_run"
+      ],
+      "parameters": {
+        "run_id": {
+          "type": "string",
+          "required": true
+        },
+        "expected_revision": {
+          "type": "integer",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.calibrations.list",
+      "title": "List central calibration records",
+      "tags": [
+        "evolver",
+        "calibration",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.calibrations.list"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_calibration_api.py::test_calibration_workspace_is_a_bounded_read_only_aggregate"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true,
+        "effect": "read"
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "evolver.calibrations.show",
+      "title": "Show a central calibration record",
+      "tags": [
+        "evolver",
+        "calibration",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.calibrations.show"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_calibration_api.py::test_calibration_event_contract_covers_accept_deliver_and_invalidate"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true,
+        "effect": "read"
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {
+        "calibration_id": {
+          "type": "string",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.calibrations.sessions.create",
+      "title": "Create a central calibration session",
+      "tags": [
+        "evolver",
+        "calibration",
+        "mutating"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.calibrations.sessions.create"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_calibration.py::test_temperature_artifact_preserves_observations_and_is_immutable"
+        ]
+      },
+      "safety": {
+        "risk": "medium",
+        "confirmation": "required",
+        "reversible": true,
+        "effect": "mutation"
+      },
+      "permissions": [
+        "manage_calibration"
+      ],
+      "parameters": {
+        "calibration_type": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "temperature",
+            "pump_flow_rate"
+          ]
+        },
+        "instrument_id": {
+          "type": "string",
+          "required": true
+        },
+        "vial_position_id": {
+          "type": "string"
+        },
+        "vial_position": {
+          "type": "string"
+        },
+        "component_id": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "id": "evolver.calibrations.sessions.observation",
+      "title": "Record a calibration observation",
+      "tags": [
+        "evolver",
+        "calibration",
+        "mutating"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.calibrations.sessions.observation"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_calibration.py::test_temperature_artifact_preserves_observations_and_is_immutable"
+        ]
+      },
+      "safety": {
+        "risk": "medium",
+        "confirmation": "required",
+        "reversible": true,
+        "effect": "mutation"
+      },
+      "permissions": [
+        "manage_calibration"
+      ],
+      "parameters": {
+        "session_id": {
+          "type": "string",
+          "required": true
+        },
+        "raw_value": {
+          "type": "number"
+        },
+        "reference_value": {
+          "type": "number"
+        },
+        "pulse_duration_ms": {
+          "type": "number"
+        },
+        "delivered_volume_ul": {
+          "type": "number"
+        },
+        "raw_metric": {
+          "type": "string"
+        },
+        "raw_unit": {
+          "type": "string"
+        },
+        "reference_unit": {
+          "type": "string"
+        },
+        "vial_position_id": {
+          "type": "string"
+        },
+        "vial_position": {
+          "type": "string"
+        },
+        "captured_at": {
+          "type": "string"
+        },
+        "source_type": {
+          "type": "string"
+        },
+        "source_record_id": {
+          "type": "string"
+        },
+        "replicate": {
+          "type": "integer"
+        },
+        "operator_note": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "id": "evolver.calibrations.sessions.fit",
+      "title": "Fit a calibration candidate",
+      "tags": [
+        "evolver",
+        "calibration",
+        "mutating"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.calibrations.sessions.fit"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_calibration.py::test_temperature_fit_is_deterministic_and_rejects_degenerate_input"
+        ]
+      },
+      "safety": {
+        "risk": "medium",
+        "confirmation": "required",
+        "reversible": true,
+        "effect": "mutation"
+      },
+      "permissions": [
+        "manage_calibration"
+      ],
+      "parameters": {
+        "session_id": {
+          "type": "string",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.calibrations.sessions.accept",
+      "title": "Accept a calibration artifact",
+      "tags": [
+        "evolver",
+        "calibration",
+        "mutating"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.calibrations.sessions.accept"
+      },
+      "evidence": {
+        "kind": "calibrated",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_calibration_api.py::test_calibration_event_contract_covers_accept_deliver_and_invalidate"
+        ]
+      },
+      "safety": {
+        "risk": "high",
+        "confirmation": "required",
+        "reversible": false,
+        "effect": "mutation"
+      },
+      "permissions": [
+        "manage_calibration"
+      ],
+      "parameters": {
+        "session_id": {
+          "type": "string",
+          "required": true
+        },
+        "hardware_fingerprint": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "id": "evolver.calibrations.sessions.cancel",
+      "title": "Cancel a calibration session",
+      "tags": [
+        "evolver",
+        "calibration",
+        "mutating"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.calibrations.sessions.cancel"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_calibration.py::test_temperature_artifact_preserves_observations_and_is_immutable"
+        ]
+      },
+      "safety": {
+        "risk": "medium",
+        "confirmation": "required",
+        "reversible": true,
+        "effect": "mutation"
+      },
+      "permissions": [
+        "manage_calibration"
+      ],
+      "parameters": {
+        "session_id": {
+          "type": "string",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.calibrations.sessions.capture",
+      "title": "Capture a raw calibration observation",
+      "tags": [
+        "evolver",
+        "calibration",
+        "mutating"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.calibrations.sessions.capture"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_calibration.py::test_temperature_artifact_preserves_observations_and_is_immutable"
+        ]
+      },
+      "safety": {
+        "risk": "medium",
+        "confirmation": "required",
+        "reversible": true,
+        "effect": "mutation"
+      },
+      "permissions": [
+        "manage_calibration"
+      ],
+      "parameters": {
+        "session_id": {
+          "type": "string",
+          "required": true
+        },
+        "reference_value": {
+          "type": "number",
+          "required": true
+        },
+        "reference_unit": {
+          "type": "string"
+        },
+        "raw_metric": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "id": "evolver.calibrations.artifacts.deliver",
+      "title": "Request calibration artifact delivery",
+      "tags": [
+        "evolver",
+        "calibration",
+        "mutating"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.calibrations.artifacts.deliver"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_calibration.py::test_distribution_is_idempotent_fenced_and_rejected_during_active_run"
+        ]
+      },
+      "safety": {
+        "risk": "high",
+        "confirmation": "required",
+        "reversible": true,
+        "effect": "mutation"
+      },
+      "permissions": [
+        "manage_calibration"
+      ],
+      "parameters": {
+        "artifact_id": {
+          "type": "string",
+          "required": true
+        },
+        "request_id": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "id": "evolver.calibrations.artifacts.supersede",
+      "title": "Supersede a calibration artifact",
+      "tags": [
+        "evolver",
+        "calibration",
+        "mutating"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.calibrations.artifacts.supersede"
+      },
+      "evidence": {
+        "kind": "calibrated",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_calibration.py::test_artifact_assessment_and_supersession_are_append_only_and_deterministic"
+        ]
+      },
+      "safety": {
+        "risk": "high",
+        "confirmation": "required",
+        "reversible": false,
+        "effect": "mutation"
+      },
+      "permissions": [
+        "manage_calibration"
+      ],
+      "parameters": {
+        "artifact_id": {
+          "type": "string",
+          "required": true
+        },
+        "superseding_artifact_id": {
+          "type": "string",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.calibrations.artifacts.invalidate",
+      "title": "Invalidate a calibration artifact",
+      "tags": [
+        "evolver",
+        "calibration",
+        "mutating"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.calibrations.artifacts.invalidate"
+      },
+      "evidence": {
+        "kind": "calibrated",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "tests": [
+          "tests/test_evolver_calibration_api.py::test_calibration_event_contract_covers_accept_deliver_and_invalidate"
+        ]
+      },
+      "safety": {
+        "risk": "high",
+        "confirmation": "required",
+        "reversible": false,
+        "effect": "mutation"
+      },
+      "permissions": [
+        "manage_calibration"
+      ],
+      "parameters": {
+        "artifact_id": {
+          "type": "string",
+          "required": true
+        },
+        "reason": {
+          "type": "string",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.experiments.validate",
+      "title": "Validate an experiment definition",
+      "tags": [
+        "evolver",
+        "experiments",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.experiments.validate"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/experiment_actions.py",
+        "tests": [
+          "tests/test_experiment_actions.py::test_validate_freezes_bundle_and_is_repeatable"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {
+        "definition": {
+          "type": "json",
+          "required": true
+        },
+        "selected_calibration_artifacts": {
+          "type": "json",
+          "default": []
+        },
+        "resolved_at": {
+          "type": "string",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.experiments.describe",
+      "title": "Describe an experiment definition",
+      "tags": [
+        "evolver",
+        "experiments",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.experiments.describe"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/experiment_actions.py",
+        "tests": [
+          "tests/test_experiment_actions.py::test_describe_exposes_provenance_but_not_mutable_catalog_details"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {
+        "definition": {
+          "type": "json",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.experiments.plan",
+      "title": "Plan an experiment",
+      "tags": [
+        "evolver",
+        "experiments",
+        "read-only"
+      ],
+      "status": "implemented",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.experiments.plan"
+      },
+      "evidence": {
+        "kind": "software",
+        "source": "applications/evolver/backend/src/meta_webui_application_backend/experiment_actions.py",
+        "tests": [
+          "tests/test_experiment_actions.py::test_plan_requires_authoritative_run_and_resources"
+        ]
+      },
+      "safety": {
+        "risk": "low",
+        "confirmation": "none",
+        "reversible": true
+      },
+      "permissions": [
+        "evolver:read"
+      ],
+      "parameters": {
+        "bundle": {
+          "type": "json",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.experiments.enqueue",
+      "title": "Enqueue an experiment",
+      "tags": [
+        "evolver",
+        "experiments",
+        "planned"
+      ],
+      "status": "planned",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.experiments.enqueue"
+      },
+      "safety": {
+        "risk": "high",
+        "confirmation": "required",
+        "reversible": true
+      },
+      "permissions": [
+        "operate_run"
+      ],
+      "parameters": {
+        "definition": {
+          "type": "json",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.experiments.run",
+      "title": "Start an experiment",
+      "tags": [
+        "evolver",
+        "experiments",
+        "planned"
+      ],
+      "status": "planned",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.experiments.run"
+      },
+      "safety": {
+        "risk": "high",
+        "confirmation": "required",
+        "reversible": false
+      },
+      "permissions": [
+        "operate_run"
+      ],
+      "parameters": {
+        "definition": {
+          "type": "json",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.run.start",
+      "title": "Start an experiment run",
+      "description": "Start an experiment run through the authoritative control plane.",
+      "tags": [
+        "evolver",
+        "runs",
+        "planned"
+      ],
+      "status": "planned",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.run.start"
+      },
+      "safety": {
+        "risk": "high",
+        "confirmation": "physical",
+        "reversible": false
+      },
+      "permissions": [
+        "operate_run"
+      ],
+      "parameters": {
+        "run_id": {
+          "type": "string",
+          "required": true
+        },
+        "bundle_id": {
+          "type": "string",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.run.pause",
+      "title": "Pause an experiment run",
+      "description": "Request a revision-fenced run pause.",
+      "tags": [
+        "evolver",
+        "runs",
+        "planned"
+      ],
+      "status": "planned",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.run.pause"
+      },
+      "safety": {
+        "risk": "high",
+        "confirmation": "physical",
+        "reversible": false
+      },
+      "permissions": [
+        "operate_run"
+      ],
+      "parameters": {
+        "run_id": {
+          "type": "string",
+          "required": true
+        }
+      }
+    },
+    {
+      "id": "evolver.run.stop",
+      "title": "Stop an experiment run",
+      "description": "Request a revision-fenced run stop.",
+      "tags": [
+        "evolver",
+        "runs",
+        "planned"
+      ],
+      "status": "planned",
+      "registry": {
+        "id": "evolver-control",
+        "binding": "evolver.run.stop"
+      },
+      "safety": {
+        "risk": "high",
+        "confirmation": "physical",
+        "reversible": false
+      },
+      "permissions": [
+        "operate_run"
+      ],
+      "parameters": {
+        "run_id": {
+          "type": "string",
+          "required": true
+        }
+      }
+    }
+  ],
+  "revision": "operator-actions-1"
+}
