@@ -563,7 +563,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/server_release_actions.py",
+        "source": "evolver_server/server_release_actions.py",
         "tests": [
           "tests/test_server_release_actions.py::test_release_build_requires_operator_and_delegates_to_coordinator"
         ]
@@ -632,7 +632,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_control_plane_operations.py"
         ]
@@ -899,7 +899,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_central_actions.py::test_adapter_preserves_authorization_and_queued_command_semantics"
         ]
@@ -935,7 +935,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_central_actions.py::test_adapter_preserves_authorization_and_queued_command_semantics"
         ]
@@ -970,7 +970,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_control_plane_operations.py"
         ]
@@ -1005,7 +1005,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_control_plane_operations.py"
         ]
@@ -1041,7 +1041,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_release_history.py"
         ]
@@ -1080,7 +1080,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_central_controller.py"
         ]
@@ -1115,7 +1115,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_central_controller.py"
         ]
@@ -1155,7 +1155,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_control_plane_operations.py::test_manual_lease_expiry_revocation_and_emergency_release_are_audited"
         ]
@@ -1195,7 +1195,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_control_plane_operations.py::test_manual_lease_expiry_revocation_and_emergency_release_are_audited"
         ]
@@ -1231,7 +1231,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_control_plane_operations.py::test_manual_lease_expiry_revocation_and_emergency_release_are_audited"
         ]
@@ -1267,7 +1267,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_control_plane_operations.py::test_manual_lease_expiry_revocation_and_emergency_release_are_audited"
         ]
@@ -1303,7 +1303,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_control_plane_operations.py::test_manual_command_is_durable_fenced_and_expires_before_sync_delivery"
         ]
@@ -1366,7 +1366,7 @@
       },
       "evidence": {
         "kind": "simulator",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_central_actions.py::test_adapter_exposes_bounded_simulator_safe_stir"
         ]
@@ -1419,7 +1419,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_control_plane_operations.py::test_dedicated_safe_stop_route_is_no_lease_and_preserves_queue_semantics"
         ]
@@ -1458,7 +1458,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_central_controller.py"
         ]
@@ -1500,7 +1500,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_central_controller.py"
         ]
@@ -1542,7 +1542,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_central_controller.py"
         ]
@@ -1584,7 +1584,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_central_controller.py"
         ]
@@ -1626,7 +1626,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_central_controller.py"
         ]
@@ -1668,7 +1668,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_central_controller.py"
         ]
@@ -1710,7 +1710,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_central_actions.py::test_adapter_routes_recovery_and_resources_through_controller"
         ]
@@ -1745,7 +1745,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_central_controller.py"
         ]
@@ -1780,7 +1780,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_central_controller.py"
         ]
@@ -1815,7 +1815,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_central_controller.py"
         ]
@@ -1845,7 +1845,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_central_controller.py"
         ]
@@ -1880,7 +1880,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_central_controller.py"
         ]
@@ -1920,7 +1920,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_central_controller.py"
         ]
@@ -1959,7 +1959,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_central_actions.py::test_adapter_preserves_authorization_and_queued_command_semantics"
         ]
@@ -1998,7 +1998,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_central_actions.py::test_adapter_preserves_authorization_and_queued_command_semantics"
         ]
@@ -2037,7 +2037,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_central_actions.py::test_adapter_preserves_authorization_and_queued_command_semantics"
         ]
@@ -2076,7 +2076,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_calibration_api.py::test_calibration_workspace_is_a_bounded_read_only_aggregate"
         ]
@@ -2107,7 +2107,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_calibration_api.py::test_calibration_event_contract_covers_accept_deliver_and_invalidate"
         ]
@@ -2143,7 +2143,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_calibration.py::test_temperature_artifact_preserves_observations_and_is_immutable"
         ]
@@ -2202,7 +2202,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_calibration.py::test_temperature_artifact_preserves_observations_and_is_immutable"
         ]
@@ -2280,7 +2280,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_calibration.py::test_temperature_fit_is_deterministic_and_rejects_degenerate_input"
         ]
@@ -2316,7 +2316,7 @@
       },
       "evidence": {
         "kind": "calibrated",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_calibration_api.py::test_calibration_event_contract_covers_accept_deliver_and_invalidate"
         ]
@@ -2355,7 +2355,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_calibration.py::test_temperature_artifact_preserves_observations_and_is_immutable"
         ]
@@ -2391,7 +2391,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_calibration.py::test_temperature_artifact_preserves_observations_and_is_immutable"
         ]
@@ -2437,7 +2437,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_calibration.py::test_distribution_is_idempotent_fenced_and_rejected_during_active_run"
         ]
@@ -2476,7 +2476,7 @@
       },
       "evidence": {
         "kind": "calibrated",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_calibration.py::test_artifact_assessment_and_supersession_are_append_only_and_deterministic"
         ]
@@ -2516,7 +2516,7 @@
       },
       "evidence": {
         "kind": "calibrated",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/evolver_controller.py",
+        "source": "evolver_server/evolver_controller.py",
         "tests": [
           "tests/test_evolver_calibration_api.py::test_calibration_event_contract_covers_accept_deliver_and_invalidate"
         ]
@@ -2556,7 +2556,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/experiment_actions.py",
+        "source": "evolver_server/experiment_actions.py",
         "tests": [
           "tests/test_experiment_actions.py::test_validate_freezes_bundle_and_is_repeatable"
         ]
@@ -2599,7 +2599,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/experiment_actions.py",
+        "source": "evolver_server/experiment_actions.py",
         "tests": [
           "tests/test_experiment_actions.py::test_describe_exposes_provenance_but_not_mutable_catalog_details"
         ]
@@ -2634,7 +2634,7 @@
       },
       "evidence": {
         "kind": "software",
-        "source": "applications/evolver/backend/src/meta_webui_application_backend/experiment_actions.py",
+        "source": "evolver_server/experiment_actions.py",
         "tests": [
           "tests/test_experiment_actions.py::test_plan_requires_authoritative_run_and_resources"
         ]
