@@ -4,7 +4,7 @@ from datetime import timedelta
 from http import HTTPStatus
 import json
 
-from meta_webui_application_backend import evolver_controller
+from evolver_server import evolver_controller
 
 
 def _operator(*permissions: str) -> evolver_controller.OperatorIdentity:
@@ -82,6 +82,46 @@ def test_manual_command_is_durable_fenced_and_expires_before_sync_delivery(tmp_p
     assert projection["command"]["expiration_reason"] == "ttl_expired"
 
 
+def test_dedicated_safe_stop_route_is_no_lease_and_preserves_queue_semantics(tmp_path):
+    enrolled = _enrolled(tmp_path)
+    operator = _operator("operate_run")
+
+    status, queued = evolver_controller.dispatch(
+        "POST", "/api/evolver/controllers/edge-a/safe-stop",
+        {"idempotency_key": "route-safe-stop"}, operator=operator, state_root=tmp_path,
+    )
+
+    assert status == HTTPStatus.ACCEPTED
+    command = queued["command"]
+    assert command["operation"] == "safe_stop"
+    assert command["controller_generation"] == enrolled["binding"]["controller_generation"]
+    assert command["requested_by"] == "alice"
+    assert command["disposition"] == "queued"
+    assert command.get("physical_actuation_verified") is None
+
+
+def test_dedicated_safe_stop_route_allows_foreign_lease_without_using_it(tmp_path):
+    _enrolled(tmp_path)
+    status, lease = evolver_controller.dispatch(
+        "POST", "/api/evolver/controllers/edge-a/manual-control-lease", {"ttl_seconds": 60},
+        operator=_operator("operate_run"), state_root=tmp_path,
+    )
+    assert status == HTTPStatus.CREATED
+    bob = evolver_controller.OperatorIdentity("bob", "test", frozenset({"operate_run"}))
+
+    status, queued = evolver_controller.dispatch(
+        "POST", "/api/evolver/controllers/edge-a/safe-stop", {},
+        operator=bob, state_root=tmp_path,
+    )
+
+    assert status == HTTPStatus.ACCEPTED
+    assert queued["command"]["disposition"] == "queued"
+    assert queued["command"]["requested_by"] == "bob"
+    assert "lease_id" not in queued["command"]
+    assert queued["command"].get("lease_token") is None
+    assert lease["lease"]["holder"] == "alice"
+
+
 def test_manual_commands_are_fenced_when_their_lease_is_revoked(tmp_path):
     enrolled = _enrolled(tmp_path)
     operator = _operator("operate_run")
@@ -94,6 +134,32 @@ def test_manual_commands_are_fenced_when_their_lease_is_revoked(tmp_path):
     assert command["disposition"] == "rejected_lease"
     status, response = evolver_controller.sync({"controller_id": "edge-a", "controller_generation": lease["lease"]["controller_generation"]}, credential=enrolled["credential"], state_root=tmp_path)
     assert status == HTTPStatus.OK and all(item["command_id"] != command["command_id"] for item in response["commands"])
+
+
+def test_machine_route_dispatch_preserves_persistence_seam_and_lease_methods(tmp_path):
+    status, token = evolver_controller.create_enrollment_token(server_url="https://central", state_root=tmp_path)
+    assert status == HTTPStatus.CREATED
+    status, enrolled = evolver_controller.dispatch(
+        "POST", "/api/evolver/controllers/enroll",
+        {"controller_id": "edge-a", "enrollment_token": token["enrollment_token"]}, state_root=tmp_path,
+    )
+    assert status == HTTPStatus.CREATED
+    status, sync = evolver_controller.dispatch(
+        "POST", "/api/evolver/controllers/sync",
+        {"controller_id": "edge-a", "controller_generation": 1},
+        authorization=f"Bearer {enrolled['credential']}", state_root=tmp_path,
+    )
+    assert status == HTTPStatus.OK and sync["accepted_generation"] == 1
+    operator = _operator("operate_run")
+    status, _ = evolver_controller.dispatch(
+        "PUT", "/api/evolver/controllers/edge-a/manual-control-lease", {}, operator=operator, state_root=tmp_path,
+    )
+    assert status == HTTPStatus.METHOD_NOT_ALLOWED
+    status, invalid = evolver_controller.dispatch(
+        "POST", "/api/evolver/controllers/edge-a/manual-command",
+        {"operation": "safe_stop", "idempotency_key": 42}, operator=operator, state_root=tmp_path,
+    )
+    assert status == HTTPStatus.BAD_REQUEST and invalid["kind"] == "BadRequest"
 
 
 def test_rollback_is_authorized_idempotent_and_generation_fenced(tmp_path):
@@ -122,10 +188,14 @@ def test_desired_release_uses_validated_catalog_and_keeps_installed_observation_
         "artifacts": {"linux-x86_64": {"url": "/releases/evolver/2026.08.27/controller.tar.gz", "sha256": "b" * 64, "size": 1}},
     }))
     monkeypatch.setenv("META_WEBUI_EVOLVER_RELEASE_ROOT", str(release_root))
-    _enrolled(tmp_path)
-    state = evolver_controller._read(evolver_controller.state_path(tmp_path))
-    state["controllers"]["edge-a"]["last_heartbeat"] = {"controller_software_release": "old"}
-    evolver_controller._write(evolver_controller.state_path(tmp_path), state)
+    enrolled = _enrolled(tmp_path)
+    status, observation = evolver_controller.sync(
+        {"controller_id": "edge-a", "controller_generation": enrolled["binding"]["controller_generation"],
+         "heartbeat": {"controller_software_release": "old",
+                        "desired_controller_software_release": "stale-intent"}},
+        credential=enrolled["credential"], state_root=tmp_path,
+    )
+    assert status == HTTPStatus.OK and observation["desired_release"] is None
     operator = _operator("update_controller")
     status, response = evolver_controller.dispatch("POST", "/api/evolver/controllers/edge-a/desired-release",
                                                     {"release": "2026.08.27", "idempotency_key": "request-1"},
@@ -140,22 +210,23 @@ def test_desired_release_uses_validated_catalog_and_keeps_installed_observation_
     assert status == HTTPStatus.OK and duplicate["idempotent"] is True
 
 
-def test_controller_archive_restore_is_soft_audited_and_active_run_protected(tmp_path):
+def test_controller_archive_restore_soft_audits_active_runs(tmp_path):
     _enrolled(tmp_path)
     operator = _operator("manage_controller")
     state_path = evolver_controller.state_path(tmp_path)
     state = evolver_controller._read(state_path)
     state["controllers"]["edge-a"]["recovery_summary"] = {"runs": [{"id": "run-1", "state": "running"}]}
     evolver_controller._write(state_path, state)
-    status, blocked = evolver_controller.dispatch("POST", "/api/evolver/controllers/edge-a/archive", {}, operator=operator, state_root=tmp_path)
-    assert status == HTTPStatus.CONFLICT and blocked["kind"] == "ActiveRunsProtectiveBlock"
-    state = evolver_controller._read(state_path); state["controllers"]["edge-a"]["recovery_summary"] = {"runs": []}; evolver_controller._write(state_path, state)
     status, archived = evolver_controller.dispatch("POST", "/api/evolver/controllers/edge-a/archive", {}, operator=operator, state_root=tmp_path)
     assert status == HTTPStatus.OK and archived["controller"]["lifecycle_state"] == "archived"
+    assert archived["event"]["active_run_ids"] == ["run-1"]
     status, denied = evolver_controller.dispatch("POST", "/api/evolver/controllers/edge-a/refresh", {}, operator=operator, state_root=tmp_path)
     assert status == HTTPStatus.CONFLICT and denied["kind"] == "ControllerArchived"
     status, restored = evolver_controller.dispatch("POST", "/api/evolver/controllers/edge-a/restore", {}, operator=operator, state_root=tmp_path)
     assert status == HTTPStatus.OK and restored["controller"]["lifecycle_state"] == "active"
+    assert restored["event"]["active_run_ids"] == []
     final = evolver_controller._read(state_path)
     assert [event["event_type"] for event in final["controller_lifecycle_events"]] == ["archived", "restored"]
     assert {event["event_type"] for event in final["audit_events"]} >= {"controller_archived", "controller_active"}
+    archived_audit = next(event for event in final["audit_events"] if event["event_type"] == "controller_archived")
+    assert archived_audit["details"]["active_run_ids"] == ["run-1"]

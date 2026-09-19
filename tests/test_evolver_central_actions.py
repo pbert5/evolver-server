@@ -1,10 +1,19 @@
 from http import HTTPStatus
+import pytest
 
-from meta_webui_application_backend import evolver_controller
-from meta_webui_application_backend.evolver_control.actions import (
+from evolver_server import evolver_controller
+from evolver_server.control.actions import (
     CentralEvolverActionAdapter,
     UnknownAction,
 )
+
+
+@pytest.fixture(autouse=True)
+def approved_enrollment_endpoints(monkeypatch):
+    monkeypatch.setenv(
+        "META_WEBUI_EVOLVER_CONTROLLER_ENDPOINTS",
+        '[{"id":"central","label":"Central","url":"https://central","controller_reachable":true,"enabled":true}]',
+    )
 
 
 def _operator(*permissions: str) -> evolver_controller.OperatorIdentity:
@@ -37,6 +46,24 @@ def test_adapter_covers_projections_enrollment_and_unknown_actions(tmp_path):
         pass
     else:
         raise AssertionError("unknown actions must not be silently accepted")
+
+
+def test_runs_projection_filters_is_bounded_and_redacts_nested_secrets(tmp_path):
+    adapter, _ = _adapter(tmp_path)
+    state_path = evolver_controller.state_path(tmp_path)
+    state = evolver_controller._read(state_path)
+    state["controllers"]["edge-a"]["recovery_summary"] = {"runs": [
+        {"id": "run-1", "state": "paused", "credential": "secret", "metadata": {"api_token": "secret"}},
+        {"id": "run-2", "state": "running"},
+    ]}
+    evolver_controller._write(state_path, state)
+    status, result = adapter.dispatch("evolver.runs.list", {"state": "paused", "limit": 1})
+    assert status == HTTPStatus.OK
+    assert [run["id"] for run in result["runs"]] == ["run-1"]
+    assert result["runs"][0]["credential"] == "<redacted>"
+    assert result["runs"][0]["metadata"]["api_token"] == "<redacted>"
+    status, _ = adapter.dispatch("evolver.runs.list", {"limit": 501})
+    assert status == HTTPStatus.BAD_REQUEST
 
 
 def test_adapter_preserves_authorization_and_queued_command_semantics(tmp_path):
@@ -80,6 +107,101 @@ def test_adapter_preserves_generation_revision_and_manual_lease_fencing(tmp_path
                for item in projected["commands"])
 
 
+def test_command_read_projections_redact_lease_tokens_but_machine_sync_delivers_them(tmp_path):
+    adapter, enrolled = _adapter(tmp_path)
+    operator = _operator("operate_run")
+    status, lease = adapter.dispatch("manual_control_lease", {"controller_id": "edge-a", "ttl_seconds": 60}, operator=operator)
+    assert status == HTTPStatus.CREATED
+    status, queued = adapter.dispatch("manual_command", {
+        "controller_id": "edge-a", "operation": "stir_pulse", "duration_ms": 100,
+        "ttl_seconds": 10, "idempotency_key": "projection-secret",
+        "target": {"nested": {"lease_token": "nested-secret"}},
+    }, operator=operator)
+    assert status == HTTPStatus.ACCEPTED
+    command_id = queued["command"]["command_id"]
+    token = lease["lease"]["lease_token"]
+
+    status, listed = adapter.dispatch("evolver.controllers.commands.list", {"controller_id": "edge-a"})
+    assert status == HTTPStatus.OK
+    listed_command = next(item for item in listed["commands"] if item["command_id"] == command_id)
+    assert listed_command["lease_token"] == "<redacted>"
+    assert listed_command["target"]["nested"]["lease_token"] == "<redacted>"
+
+    status, shown = adapter.dispatch("evolver.controllers.commands.show", {
+        "controller_id": "edge-a", "command_id": command_id,
+    })
+    assert status == HTTPStatus.OK
+    assert shown["command"]["lease_token"] == "<redacted>"
+    assert shown["command"]["target"]["nested"]["lease_token"] == "<redacted>"
+
+    status, synced = evolver_controller.sync(
+        {"controller_id": "edge-a", "controller_generation": enrolled["binding"]["controller_generation"]},
+        credential=enrolled["credential"], state_root=tmp_path,
+    )
+    assert status == HTTPStatus.OK
+    delivered = next(item for item in synced["commands"] if item["command_id"] == command_id)
+    assert delivered["lease_token"] == token
+
+
+def test_adapter_exposes_bounded_simulator_safe_stir(tmp_path):
+    adapter, _ = _adapter(tmp_path)
+    operator = _operator("operate_run")
+    status, _ = adapter.dispatch("evolver.controllers.manual.lease",
+                                 {"controller_id": "edge-a", "ttl_seconds": 60}, operator=operator)
+    assert status == HTTPStatus.CREATED
+    status, queued = adapter.dispatch("evolver.controllers.manual.stir", {
+        "controller_id": "edge-a", "duration_ms": 100, "channel": 1, "level": 25,
+        "ttl_seconds": 10, "idempotency_key": "safe-stir-1",
+    }, operator=operator)
+    assert status == HTTPStatus.ACCEPTED
+    assert queued["command"]["operation"] == "stir_pulse"
+    assert queued["command"]["parameters"] == {"channel": 1, "duration_ms": 100, "level": 25}
+    status, _ = adapter.dispatch("evolver.controllers.manual.stir", {
+        "controller_id": "edge-a", "duration_ms": 1001, "channel": 1, "level": 25,
+    }, operator=operator)
+    assert status == HTTPStatus.BAD_REQUEST
+
+
+def test_adapter_exposes_dedicated_safe_stop_without_a_lease(tmp_path):
+    adapter, enrolled = _adapter(tmp_path)
+    operator = _operator("operate_run")
+
+    status, queued = adapter.dispatch("evolver.controllers.safe_stop", {
+        "controller_id": "edge-a", "idempotency_key": "safe-stop-1",
+    }, operator=operator)
+
+    assert status == HTTPStatus.ACCEPTED
+    command = queued["command"]
+    assert command["operation"] == "safe_stop"
+    assert command["command_kind"] == "emergency_safe_stop"
+    assert command["controller_generation"] == enrolled["binding"]["controller_generation"]
+    assert command["requested_by"] == "alice"
+    assert command["disposition"] == "queued"
+    assert command.get("physical_actuation_verified") is None
+
+
+def test_dedicated_safe_stop_rejects_manual_command_parameters(tmp_path):
+    adapter, _ = _adapter(tmp_path)
+
+    status, response = adapter.dispatch("evolver.controllers.safe_stop", {
+        "controller_id": "edge-a", "target": {"instrument_id": "heater-a"},
+    }, operator=_operator("operate_run"))
+
+    assert status == HTTPStatus.BAD_REQUEST
+    assert response["kind"] == "BadRequest"
+
+
+def test_dedicated_safe_stop_requires_operate_run(tmp_path):
+    adapter, _ = _adapter(tmp_path)
+
+    status, response = adapter.dispatch("evolver.controllers.safe_stop", {
+        "controller_id": "edge-a",
+    })
+
+    assert status == HTTPStatus.UNAUTHORIZED
+    assert response["kind"] == "OperatorAuthenticationRequired"
+
+
 def test_adapter_routes_recovery_and_resources_through_controller(tmp_path):
     adapter, _ = _adapter(tmp_path)
     operator = _operator("recover_controller", "operate_run")
@@ -90,4 +212,3 @@ def test_adapter_routes_recovery_and_resources_through_controller(tmp_path):
     assert status == HTTPStatus.NOT_FOUND
     denied, _ = adapter.dispatch("recovery_import", {"controller_id": "edge-a", "snapshot_id": "x", "action": "ignore"})
     assert denied == HTTPStatus.UNAUTHORIZED
-
