@@ -137,7 +137,12 @@ def load_run_resources(cur: Any) -> tuple[list[dict[str, Any]], list[dict[str, A
 
 def load_od_blank_evidence(cur: Any) -> list[dict[str, Any]]:
     cur.execute("SELECT record_id, controller_id, controller_generation, instrument_id, blank_id, channel_index, raw_adc, captured_at, evidence FROM evolver.od_blank_evidence ORDER BY captured_at, controller_id, record_id")
-    return [_plain(dict(row)) for row in cur.fetchall()]
+    records = []
+    for row in cur.fetchall():
+        record = _plain(dict(row))
+        record.update(record.pop("evidence") or {})
+        records.append(record)
+    return records
 
 
 def save_od_blank_evidence(cur: Any, state: Mapping[str, Any]) -> None:
