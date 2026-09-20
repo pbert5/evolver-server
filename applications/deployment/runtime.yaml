@@ -29,3 +29,5 @@ database:
       path: applications/deployment/databases/postgres/migrations/0026_evolver_normalized_history.sql
     - id: 0027_evolver_legacy_import
       path: applications/deployment/databases/postgres/migrations/0027_evolver_legacy_import.sql
+    - id: 0028_evolver_calibration_sessions
+      path: applications/deployment/databases/postgres/migrations/0028_evolver_calibration_sessions.sql

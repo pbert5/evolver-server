@@ -16,7 +16,7 @@ def test_server_default_config_is_self_contained_and_central_only(monkeypatch, t
         "0020_evolver_controller_lifecycle", "0021_evolver_command_delivery_projection",
         "0022_evolver_command_delivery_eligibility", "0023_evolver_calibration_evidence",
         "0024_evolver_component_calibration_targets", "0025_runtime_provenance",
-        "0026_evolver_normalized_history", "0027_evolver_legacy_import",
+        "0026_evolver_normalized_history", "0027_evolver_legacy_import", "0028_evolver_calibration_sessions",
     ]
     assert all(migration.path.is_relative_to(Path(__file__).parents[1]) for migration in migrations)
     assert all("core." not in migration.sql for migration in migrations)

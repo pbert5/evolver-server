@@ -72,7 +72,10 @@ class PostgresCentralControllerStore(CentralControllerStore):
         return psycopg.connect(self.url, row_factory=dict_row)
 
     def load(self) -> tuple[dict[str, Any], int]:
-        state: dict[str, Any] = {"enrollment_tokens": {}, "controllers": {}, "commands": {}, "manual_control_leases": {}}
+        state: dict[str, Any] = {"enrollment_tokens": {}, "controllers": {}, "commands": {}, "manual_control_leases": {},
+                                 "release_history": [], "release_deployments": [], "release_events": [],
+                                 "calibration_sessions": {}, "calibration_artifacts": {}, "calibration_events": [],
+                                 "run_resource_assignments": [], "run_resource_events": []}
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute("SELECT id, public_key_fingerprint, created_at FROM evolver.webui_controllers ORDER BY created_at, id LIMIT 1")
             row = cur.fetchone()
@@ -112,6 +115,10 @@ class PostgresCentralControllerStore(CentralControllerStore):
             cur.execute("SELECT lease_id, controller_id, controller_generation, holder, lease_token, acquired_at, expires_at, revoked_at, revoked_by, status FROM evolver.manual_control_leases")
             for row in cur.fetchall():
                 state["manual_control_leases"][row["controller_id"]] = _json_row(row, omit={"controller_id"})
+            from .persistence.aggregates import load_calibration, load_release_history, load_run_resources
+            state["release_history"], state["release_deployments"], state["release_events"] = load_release_history(cur)
+            state["calibration_sessions"], state["calibration_artifacts"], state["calibration_events"] = load_calibration(cur)
+            state["run_resource_assignments"], state["run_resource_events"] = load_run_resources(cur)
         return state, 0
 
     def save(self, state: dict[str, Any], revision: int) -> None:
@@ -149,6 +156,10 @@ class PostgresCentralControllerStore(CentralControllerStore):
             for controller_id, assignment in state.get("endpoint_assignments", {}).items():
                 if isinstance(assignment, dict) and assignment.get("endpoint_id"):
                     cur.execute("INSERT INTO evolver.controller_endpoint_assignments(controller_id, endpoint_id, endpoint_url, assigned_at, assigned_by) VALUES (%s,%s,%s,%s::timestamptz,%s) ON CONFLICT (controller_id) DO UPDATE SET endpoint_id=EXCLUDED.endpoint_id, endpoint_url=EXCLUDED.endpoint_url, assigned_at=EXCLUDED.assigned_at, assigned_by=EXCLUDED.assigned_by", (controller_id, assignment["endpoint_id"], assignment.get("url"), assignment.get("assigned_at"), assignment.get("assigned_by")))
+            from .persistence.aggregates import save_calibration, save_release_history, save_run_resources
+            save_release_history(cur, state)
+            save_calibration(cur, state)
+            save_run_resources(cur, state)
 
 
 def _json_value(value: Any) -> Any:

@@ -36,7 +36,10 @@ def import_legacy_state(source: str | Path, *, url: str, dry_run: bool = False) 
         if marker:
             summary["already_imported"] = True
             return summary
-        store.save(document, 0)
+        # Reserve the singleton marker in this transaction before the
+        # normalized write.  If the write fails, this transaction rolls back;
+        # the store write is itself one transaction and is idempotent on retry.
         cur.execute("INSERT INTO evolver.legacy_state_imports(singleton, source_digest, source_path, summary) VALUES (true,%s,%s,%s::jsonb)", (digest, str(path), json.dumps(summary)))
+        store.save(document, 0)
     summary["already_imported"] = False
     return summary
