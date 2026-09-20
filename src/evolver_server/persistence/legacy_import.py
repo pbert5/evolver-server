@@ -29,17 +29,24 @@ def import_legacy_state(source: str | Path, *, url: str, dry_run: bool = False) 
         return summary
     store = PostgresCentralControllerStore(url)
     with store._connect() as conn, conn.cursor() as cur:
-        cur.execute("SELECT source_digest FROM evolver.legacy_state_imports WHERE source_digest=%s OR singleton=true", (digest,))
-        marker = cur.fetchone()
-        if marker and marker["source_digest"] != digest:
-            raise LegacyImportConflict("a different legacy source was already imported")
-        if marker:
-            summary["already_imported"] = True
-            return summary
-        # Reserve the singleton marker in this transaction before the
-        # normalized write.  If the write fails, this transaction rolls back;
-        # the store write is itself one transaction and is idempotent on retry.
-        cur.execute("INSERT INTO evolver.legacy_state_imports(singleton, source_digest, source_path, summary) VALUES (true,%s,%s,%s::jsonb)", (digest, str(path), json.dumps(summary)))
-        store.save(document, 0)
+        try:
+            cur.execute("""INSERT INTO evolver.legacy_state_imports(singleton, source_digest, source_path, summary)
+                VALUES (true,%s,%s,%s::jsonb) ON CONFLICT (singleton) DO NOTHING RETURNING source_digest""",
+                (digest, str(path), json.dumps(summary)))
+            reserved = cur.fetchone()
+            if reserved is None:
+                cur.execute("SELECT source_digest FROM evolver.legacy_state_imports WHERE singleton=true")
+                marker = cur.fetchone()
+                if marker and marker["source_digest"] != digest:
+                    raise LegacyImportConflict("a different legacy source was already imported")
+                summary["already_imported"] = True
+                return summary
+            # The marker and all normalized writes share this caller-owned
+            # transaction, so crash/failure cannot leave a marker-less import.
+            PostgresCentralControllerStore(url, _connection=conn).save(document, 0)
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
     summary["already_imported"] = False
     return summary

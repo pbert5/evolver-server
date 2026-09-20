@@ -62,11 +62,14 @@ class PostgresCentralControllerStore(CentralControllerStore):
     are migrated, but each write is an upsert to its affected relation and
     never a broad delete/rebuild.
     """
-    def __init__(self, url: str, *, bootstrap_path: Path | None = None):
+    def __init__(self, url: str, *, bootstrap_path: Path | None = None, _connection: Any | None = None):
         self.url = url
         self.bootstrap_path = None
+        self._shared_connection = _connection
 
     def _connect(self):
+        if self._shared_connection is not None:
+            return _ConnectionLease(self._shared_connection)
         import psycopg
         from psycopg.rows import dict_row
         return psycopg.connect(self.url, row_factory=dict_row)
@@ -115,6 +118,11 @@ class PostgresCentralControllerStore(CentralControllerStore):
             cur.execute("SELECT lease_id, controller_id, controller_generation, holder, lease_token, acquired_at, expires_at, revoked_at, revoked_by, status FROM evolver.manual_control_leases")
             for row in cur.fetchall():
                 state["manual_control_leases"][row["controller_id"]] = _json_row(row, omit={"controller_id"})
+            cur.execute("SELECT controller_id, endpoint_id, endpoint_url, assigned_at, assigned_by FROM evolver.controller_endpoint_assignments")
+            for row in cur.fetchall():
+                assignment = _json_row(row, omit={"controller_id", "endpoint_url"})
+                assignment["url"] = _json_value(row["endpoint_url"])
+                state.setdefault("endpoint_assignments", {})[row["controller_id"]] = assignment
             from .persistence.aggregates import load_calibration, load_od_blank_evidence, load_release_history, load_run_resources
             state["release_history"], state["release_deployments"], state["release_events"] = load_release_history(cur)
             state["calibration_sessions"], state["calibration_artifacts"], state["calibration_events"] = load_calibration(cur)
@@ -166,6 +174,19 @@ class PostgresCentralControllerStore(CentralControllerStore):
 
 def _json_value(value: Any) -> Any:
     return value.isoformat().replace("+00:00", "Z") if hasattr(value, "isoformat") else value
+
+
+class _ConnectionLease:
+    """No-op context wrapper for a caller-owned transaction connection."""
+
+    def __init__(self, connection: Any):
+        self.connection = connection
+
+    def __enter__(self) -> Any:
+        return self.connection
+
+    def __exit__(self, *_: Any) -> bool:
+        return False
 
 
 def _json_row(row: dict[str, Any], *, omit: set[str] | None = None) -> dict[str, Any]:

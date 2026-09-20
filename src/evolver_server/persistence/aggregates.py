@@ -81,6 +81,10 @@ def load_calibration(cur: Any) -> tuple[dict[str, dict[str, Any]], dict[str, dic
     for row in cur.fetchall():
         event = _plain(dict(row))
         event["id"] = event.pop("event_id")
+        event["type"] = event["event_type"]
+        event["at"] = event["occurred_at"]
+        if event.get("actor") is not None:
+            event["by"] = event["actor"]
         events.append(event)
     return sessions, artifacts, events
 
@@ -123,14 +127,18 @@ def load_run_resources(cur: Any) -> tuple[list[dict[str, Any]], list[dict[str, A
     for row in cur.fetchall():
         item = _plain(dict(row))
         item["id"] = item.pop("assignment_id")
-        item.update(item.pop("details") or {})
+        details = item.pop("details") or {}
+        item["details"] = details
+        item.update(details)
         assignments.append(item)
     cur.execute("SELECT event_id, run_id, assignment_id, event_type, occurred_at, actor, reason, details FROM evolver.run_resource_events ORDER BY occurred_at, event_id")
     events = []
     for row in cur.fetchall():
         event = _plain(dict(row))
         event["id"] = event.pop("event_id")
-        event.update(event.pop("details") or {})
+        details = event.pop("details") or {}
+        event["details"] = details
+        event.update(details)
         events.append(event)
     return assignments, events
 
@@ -163,8 +171,11 @@ def save_run_resources(cur: Any, state: Mapping[str, Any]) -> None:
     for item in state.get("run_resource_assignments", []):
         if not isinstance(item, Mapping):
             continue
-        known = {"resource_kind", "resource_id", "target_temperature", "tolerance", "required_capabilities", "sample_reference"}
-        details = {key: item.get(key) for key in known if key in item}
+        reserved = {"id", "assignment_id", "run_id", "sequence", "resource_kind", "resource_id", "assignment_state",
+                    "assigned_at", "released_at", "expires_at", "assigned_by", "reason", "supersedes_id", "request_id",
+                    "controller_generation", "based_on_revision", "sample_reference", "details"}
+        details = dict(item.get("details", {})) if isinstance(item.get("details"), Mapping) else {}
+        details.update({key: value for key, value in item.items() if key not in reserved})
         cur.execute("""INSERT INTO evolver.run_resource_assignments
             (assignment_id, run_id, sequence, resource_kind, resource_id, assignment_state, assigned_at, released_at,
              expires_at, assigned_by, reason, supersedes_id, request_id, controller_generation, based_on_revision, sample_reference, details)
