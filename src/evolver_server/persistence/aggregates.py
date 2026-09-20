@@ -154,8 +154,9 @@ def save_run_resources(cur: Any, state: Mapping[str, Any]) -> None:
     for event in state.get("run_resource_events", []):
         if not isinstance(event, Mapping):
             continue
-        reserved = {"id", "event_id", "run_id", "assignment_id", "event_type", "occurred_at", "actor", "reason"}
-        details = {key: value for key, value in event.items() if key not in reserved}
+        reserved = {"id", "event_id", "run_id", "assignment_id", "event_type", "occurred_at", "actor", "reason", "details"}
+        details = dict(event.get("details", {})) if isinstance(event.get("details"), Mapping) else {}
+        details.update({key: value for key, value in event.items() if key not in reserved})
         cur.execute("""INSERT INTO evolver.run_resource_events
             (event_id, run_id, assignment_id, event_type, occurred_at, actor, reason, details)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s::jsonb) ON CONFLICT (event_id) DO NOTHING""", (
