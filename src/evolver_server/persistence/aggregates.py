@@ -135,6 +135,25 @@ def load_run_resources(cur: Any) -> tuple[list[dict[str, Any]], list[dict[str, A
     return assignments, events
 
 
+def load_od_blank_evidence(cur: Any) -> list[dict[str, Any]]:
+    cur.execute("SELECT record_id, controller_id, controller_generation, instrument_id, blank_id, channel_index, raw_adc, captured_at, evidence FROM evolver.od_blank_evidence ORDER BY captured_at, controller_id, record_id")
+    return [_plain(dict(row)) for row in cur.fetchall()]
+
+
+def save_od_blank_evidence(cur: Any, state: Mapping[str, Any]) -> None:
+    for record in state.get("od_blank_records", []):
+        if not isinstance(record, Mapping):
+            continue
+        reserved = {"record_id", "controller_id", "controller_generation", "instrument_id", "blank_id", "channel_index", "raw_adc", "captured_at"}
+        evidence = {key: value for key, value in record.items() if key not in reserved}
+        cur.execute("""INSERT INTO evolver.od_blank_evidence
+            (record_id, controller_id, controller_generation, instrument_id, blank_id, channel_index, raw_adc, captured_at, evidence)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb)
+            ON CONFLICT (controller_id, controller_generation, record_id) DO NOTHING""", (
+            record.get("record_id"), record.get("controller_id"), record.get("controller_generation"), record.get("instrument_id"),
+            record.get("blank_id"), record.get("channel_index"), record.get("raw_adc"), record.get("captured_at"), _json(evidence)))
+
+
 def save_run_resources(cur: Any, state: Mapping[str, Any]) -> None:
     for item in state.get("run_resource_assignments", []):
         if not isinstance(item, Mapping):
