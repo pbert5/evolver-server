@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import hashlib
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
@@ -66,6 +67,7 @@ class PostgresCentralControllerStore(CentralControllerStore):
         self.url = url
         self.bootstrap_path = None
         self._shared_connection = _connection
+        self._loaded_controller_revisions: dict[str, int] = {}
 
     def _connect(self):
         if self._shared_connection is not None:
@@ -89,13 +91,14 @@ class PostgresCentralControllerStore(CentralControllerStore):
                 state["enrollment_tokens"][row["token_digest"]] = _json_row(row, omit={"token_digest"})
             cur.execute(
                 "SELECT p.controller_id, p.public_key_fingerprint, p.connection_state, p.last_sync_at, "
-                "p.event_cursors, p.telemetry_cursors, p.projection, c.credential_digest, "
+                "p.event_cursors, p.telemetry_cursors, p.projection, p.revision, c.credential_digest, "
                 "b.webui_controller_id, b.generation, b.server_url, b.status, b.bound_at "
                 "FROM evolver.controller_projections p "
                 "LEFT JOIN evolver.controller_credentials c USING (controller_id) "
                 "LEFT JOIN evolver.controller_bindings b USING (controller_id)"
             )
             for row in cur.fetchall():
+                self._loaded_controller_revisions[row["controller_id"]] = int(row["revision"])
                 item = dict(row["projection"] or {}) if isinstance(row["projection"], dict) else {}
                 item.update({"public_key_fingerprint": row["public_key_fingerprint"], "connection_state": row["connection_state"], "last_sync_at": _json_value(row["last_sync_at"]), "event_cursors": row["event_cursors"] or {}, "telemetry_cursors": row["telemetry_cursors"] or {}, "credential_digest": row["credential_digest"]})
                 if row["generation"] is not None:
@@ -141,7 +144,25 @@ class PostgresCentralControllerStore(CentralControllerStore):
             for controller_id, item in state.get("controllers", {}).items():
                 if not isinstance(item, dict):
                     continue
-                cur.execute("INSERT INTO evolver.controller_projections(controller_id, public_key_fingerprint, connection_state, last_sync_at, event_cursors, telemetry_cursors, projection) VALUES (%s,%s,%s,%s::timestamptz,%s::jsonb,%s::jsonb,%s::jsonb) ON CONFLICT (controller_id) DO UPDATE SET public_key_fingerprint=EXCLUDED.public_key_fingerprint, connection_state=EXCLUDED.connection_state, last_sync_at=EXCLUDED.last_sync_at, event_cursors=EXCLUDED.event_cursors, telemetry_cursors=EXCLUDED.telemetry_cursors, projection=EXCLUDED.projection", (controller_id, item.get("public_key_fingerprint"), item.get("connection_state"), item.get("last_sync_at"), json.dumps(item.get("event_cursors", {})), json.dumps(item.get("telemetry_cursors", {})), json.dumps(item)))
+                baseline = getattr(state, "_baseline", None)
+                if isinstance(baseline, dict) and item == baseline.get("controllers", {}).get(controller_id):
+                    continue
+                expected = getattr(state, "_controller_revisions", {}).get(controller_id)
+                if expected is None:
+                    cur.execute("""INSERT INTO evolver.controller_projections
+                        (controller_id, public_key_fingerprint, connection_state, last_sync_at,
+                         event_cursors, telemetry_cursors, projection, revision)
+                        VALUES (%s,%s,%s,%s::timestamptz,%s::jsonb,%s::jsonb,%s::jsonb,0)
+                        ON CONFLICT (controller_id) DO NOTHING""", (controller_id, item.get("public_key_fingerprint"), item.get("connection_state"), item.get("last_sync_at"), json.dumps(item.get("event_cursors", {})), json.dumps(item.get("telemetry_cursors", {})), json.dumps(item)))
+                    if cur.rowcount == 0:
+                        raise CentralStoreConflict(f"controller aggregate {controller_id} was created concurrently")
+                else:
+                    cur.execute("""UPDATE evolver.controller_projections SET
+                        public_key_fingerprint=%s, connection_state=%s, last_sync_at=%s::timestamptz,
+                        event_cursors=%s::jsonb, telemetry_cursors=%s::jsonb, projection=%s::jsonb,
+                        revision=revision+1 WHERE controller_id=%s AND revision=%s""", (item.get("public_key_fingerprint"), item.get("connection_state"), item.get("last_sync_at"), json.dumps(item.get("event_cursors", {})), json.dumps(item.get("telemetry_cursors", {})), json.dumps(item), controller_id, expected))
+                    if cur.rowcount != 1:
+                        raise CentralStoreConflict(f"stale controller aggregate {controller_id}")
                 if isinstance(item.get("credential_digest"), str):
                     cur.execute("INSERT INTO evolver.controller_credentials(controller_id, credential_digest) VALUES (%s,%s) ON CONFLICT (controller_id) DO UPDATE SET credential_digest=EXCLUDED.credential_digest", (controller_id, item["credential_digest"]))
                 binding = item.get("binding")
@@ -174,6 +195,10 @@ class PostgresCentralControllerStore(CentralControllerStore):
 
 def _json_value(value: Any) -> Any:
     return value.isoformat().replace("+00:00", "Z") if hasattr(value, "isoformat") else value
+
+
+def canonical_digest(value: Any) -> str:
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
 
 
 class _ConnectionLease:

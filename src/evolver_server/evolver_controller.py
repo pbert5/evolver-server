@@ -61,6 +61,8 @@ class _LoadedState(dict[str, Any]):
         super().__init__(value)
         self.store = store
         self.revision = revision
+        self._baseline = copy.deepcopy(value)
+        self._controller_revisions = dict(getattr(store, "_loaded_controller_revisions", {}))
 
 
 def resolve_definition_bundle(
