@@ -179,7 +179,6 @@ class PostgresCentralControllerStore(CentralControllerStore):
             for controller_id, item in state.get("controllers", {}).items():
                 if not isinstance(item, dict):
                     continue
-                baseline = getattr(state, "_baseline", None)
                 if isinstance(baseline, dict) and item == baseline.get("controllers", {}).get(controller_id):
                     continue
                 expected = controller_revisions.get(controller_id)
