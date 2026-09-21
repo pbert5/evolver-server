@@ -149,7 +149,7 @@ def load_run_resources(cur: Any) -> tuple[list[dict[str, Any]], list[dict[str, A
     for row in cur.fetchall():
         item = _plain(dict(row["payload"] or {})) or _plain(dict(row))
         item["id"] = item.pop("assignment_id", item.get("id"))
-        details = item.pop("details") or {}
+        details = item.pop("details", {}) or {}
         item["details"] = details
         item.update(details)
         assignments.append(item)
@@ -158,7 +158,7 @@ def load_run_resources(cur: Any) -> tuple[list[dict[str, Any]], list[dict[str, A
     for row in cur.fetchall():
         event = _plain(dict(row["payload"] or {})) or _plain(dict(row))
         event["id"] = event.pop("event_id", event.get("id"))
-        details = event.pop("details") or {}
+        details = event.pop("details", {}) or {}
         event["details"] = details
         event.update(details)
         events.append(event)
@@ -170,7 +170,7 @@ def load_od_blank_evidence(cur: Any) -> list[dict[str, Any]]:
     records = []
     for row in cur.fetchall():
         record = _plain(dict(row["payload"] or {})) or _plain(dict(row))
-        record.update(record.pop("evidence") or {})
+        record.update(record.pop("evidence", {}) or {})
         records.append(record)
     return records
 
