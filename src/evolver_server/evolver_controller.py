@@ -281,6 +281,11 @@ def _state(path: Path) -> dict[str, Any]:
     if isinstance(metadata, dict):
         metadata.setdefault("controllers", {})
         metadata.setdefault("instruments", {})
+    # The compatibility state is a read projection assembled from several
+    # normalized relations.  Establish the dirty baseline only after that
+    # projection has been fully reconstructed, so read-only requests do not
+    # consume aggregate revisions.
+    result._baseline = copy.deepcopy(result)
     return result
 
 
