@@ -1,6 +1,6 @@
 from http import HTTPStatus
 
-from meta_webui_application_backend import evolver_controller
+from evolver_server import evolver_controller
 
 
 def test_calibration_event_contract_covers_accept_deliver_and_invalidate(tmp_path):

@@ -5,11 +5,65 @@ import json
 
 import pytest
 
-from meta_webui_application_backend import evolver_controller
-from meta_webui_application_backend.central_store import JsonBootstrapCentralControllerStore, configured_store
-from meta_webui_application_backend.evolver_edge import EdgeStore, SyncClient
-from meta_webui_application_backend.evolver_edge.hardware import ProbeError, ProbeOutcome
-from meta_webui_application_backend.evolver_edge.hardware_service import poll_once
+from evolver_server import evolver_controller
+from evolver_server.central_store import JsonBootstrapCentralControllerStore, configured_store
+
+
+@pytest.fixture(autouse=True)
+def approved_enrollment_endpoints(monkeypatch):
+    monkeypatch.setenv(
+        "META_WEBUI_EVOLVER_CONTROLLER_ENDPOINTS",
+        '[{"id":"central","label":"Central","url":"https://central","controller_reachable":true,"enabled":true},'
+        '{"id":"webui","label":"WebUI","url":"https://webui","controller_reachable":true,"enabled":true},'
+        '{"id":"webui-example","label":"WebUI example","url":"https://webui.example","controller_reachable":true,"enabled":true},'
+        '{"id":"webui-local","label":"WebUI local","url":"https://webui:18086","controller_reachable":true,"enabled":true}]',
+    )
+
+
+def test_enrollment_token_requires_approved_endpoint_and_supports_endpoint_id(tmp_path):
+    rejected, response = evolver_controller.create_enrollment_token(
+        server_url="https://attacker.example", state_root=tmp_path,
+    )
+    assert rejected == HTTPStatus.BAD_REQUEST
+    assert response["kind"] == "BadRequest"
+
+    created, token = evolver_controller.create_enrollment_token(
+        endpoint_id="webui-example", state_root=tmp_path,
+    )
+    assert created == HTTPStatus.CREATED
+    assert token["endpoint_id"] == "webui-example"
+    assert token["server_url"] == "https://webui.example"
+
+    mismatch, _ = evolver_controller.create_enrollment_token(
+        endpoint_id="webui-example", server_url="https://central", state_root=tmp_path,
+    )
+    assert mismatch == HTTPStatus.BAD_REQUEST
+    unavailable, _ = evolver_controller.create_enrollment_token(
+        endpoint_id="missing", state_root=tmp_path,
+    )
+    assert unavailable == HTTPStatus.BAD_REQUEST
+    invalid_id, _ = evolver_controller.create_enrollment_token(
+        endpoint_id="", state_root=tmp_path,
+    )
+    assert invalid_id == HTTPStatus.BAD_REQUEST
+
+    insecure, _ = evolver_controller.create_enrollment_token(
+        server_url="http://webui", state_root=tmp_path,
+    )
+    assert insecure == HTTPStatus.BAD_REQUEST
+
+
+def test_enrollment_uses_persisted_server_url_without_revalidating_old_token(tmp_path, monkeypatch):
+    created, token = evolver_controller.create_enrollment_token(
+        endpoint_id="central", state_root=tmp_path,
+    )
+    assert created == HTTPStatus.CREATED
+    monkeypatch.setenv("META_WEBUI_EVOLVER_CONTROLLER_ENDPOINTS", "[]")
+    enrolled, response = evolver_controller.enroll(
+        {"controller_id": "edge-old", "enrollment_token": token["enrollment_token"]}, state_root=tmp_path,
+    )
+    assert enrolled == HTTPStatus.CREATED
+    assert response["binding"]["server_url"] == "https://central"
 
 
 def test_sensitive_http_operations_fail_closed_without_deployment_operator(tmp_path, monkeypatch):
@@ -28,7 +82,7 @@ def test_trusted_perimeter_identity_authorizes_only_its_declared_permissions(tmp
     operator = evolver_controller.operator_from_headers({"X-Verified-Operator": "alice"})
     assert operator is not None and operator.subject == "alice"
     created, token = evolver_controller.dispatch(
-        "POST", "/api/evolver/enrollment-tokens", {"server_url": "https://webui.example"}, operator=operator,
+        "POST", "/api/evolver/enrollment-tokens", {"server_url": "https://webui.example"}, operator=operator, state_root=tmp_path,
     )
     assert created == HTTPStatus.CREATED
     enrolled, response = evolver_controller.enroll(
@@ -42,7 +96,7 @@ def test_trusted_perimeter_identity_authorizes_only_its_declared_permissions(tmp
     )
     assert synced == HTTPStatus.OK
     queued, command = evolver_controller.dispatch(
-        "POST", "/api/evolver/runs/run-a/commands", {"action": "pause", "expected_revision": 1}, operator=operator,
+        "POST", "/api/evolver/runs/run-a/commands", {"action": "pause", "expected_revision": 1}, operator=operator, state_root=tmp_path,
     )
     assert queued == HTTPStatus.ACCEPTED
     assert command["command"]["requested_by"] == "alice"
@@ -76,7 +130,7 @@ def test_command_wait_is_bounded_generation_fenced_and_safe_stop_prioritized(tmp
 
 
 def test_identity_tokens_and_enrollment_survive_central_restart(tmp_path):
-    first_status, first = evolver_controller.create_enrollment_token(server_url="http://webui:18086", state_root=tmp_path)
+    first_status, first = evolver_controller.create_enrollment_token(server_url="https://webui:18086", state_root=tmp_path)
     assert first_status == HTTPStatus.CREATED
     enrolled_status, enrolled = evolver_controller.enroll(
         {"controller_id": "edge-a", "public_key_fingerprint": "edge-public", "enrollment_token": first["enrollment_token"]}, state_root=tmp_path,
@@ -90,7 +144,7 @@ def test_identity_tokens_and_enrollment_survive_central_restart(tmp_path):
         {"controller_id": "edge-b", "enrollment_token": first["enrollment_token"]}, state_root=tmp_path,
     )
     assert rejected_status == HTTPStatus.UNAUTHORIZED
-    next_status, next_token = evolver_controller.create_enrollment_token(server_url="http://webui:18086", state_root=tmp_path)
+    next_status, next_token = evolver_controller.create_enrollment_token(server_url="https://webui:18086", state_root=tmp_path)
     assert next_status == HTTPStatus.CREATED
     assert next_token["webui_controller"] == first["webui_controller"]
 
@@ -107,8 +161,26 @@ def test_existing_json_install_is_a_one_time_bootstrap_source(tmp_path, monkeypa
     assert isinstance(configured_store(json_path=path, explicit_state_root=True), JsonBootstrapCentralControllerStore)
 
 
+def test_unmanaged_compatibility_state_cannot_alias_stale_managed_provenance(tmp_path, monkeypatch):
+    root_a = tmp_path / "root-a"
+    root_b = tmp_path / "root-b"
+    path_a = evolver_controller.state_path(root_a)
+    path_b = evolver_controller.state_path(root_b)
+    evolver_controller._write(path_a, {"root": "a"})
+    evolver_controller._write(path_b, {"root": "b"})
+
+    monkeypatch.setattr(evolver_controller, "id", lambda value: 7, raising=False)
+    evolver_controller._state(path_a)
+    unmanaged = evolver_controller._read(path_b)
+    unmanaged["mutation"] = "belongs-to-b"
+    evolver_controller._write(path_b, unmanaged)
+
+    assert evolver_controller._read(path_a) == {"root": "a"}
+    assert evolver_controller._read(path_b) == {"root": "b", "mutation": "belongs-to-b"}
+
+
 def test_authenticated_sync_is_fenced_deduplicated_and_persistent(tmp_path):
-    _, token = evolver_controller.create_enrollment_token(server_url="http://webui:18086", state_root=tmp_path)
+    _, token = evolver_controller.create_enrollment_token(server_url="https://webui:18086", state_root=tmp_path)
     _, enrolled = evolver_controller.enroll({"controller_id": "edge-a", "enrollment_token": token["enrollment_token"]}, state_root=tmp_path)
     body = {
         "controller_id": "edge-a", "controller_generation": 1,
@@ -118,6 +190,12 @@ def test_authenticated_sync_is_fenced_deduplicated_and_persistent(tmp_path):
         "telemetry_batches": [{"stream_id": "od", "first_sequence": 1, "last_sequence": 2, "records": [
             {"stream_id": "od", "sequence": 1, "payload": {"od": 0.1}}, {"stream_id": "od", "sequence": 2, "payload": {"od": 0.2}}]}],
         "recovery_summary": {"id": "recovery-1"},
+        "history_batches": [{"fact_type": "event", "stream_id": "run-a", "records": [
+            {"fact_id": "event-1", "run_id": "run-a", "sequence": 1,
+             "occurred_at": "2026-09-01T00:00:00Z", "payload": {"event_type": "started"}}]},
+            {"fact_type": "telemetry", "stream_id": "od", "records": [
+            {"fact_id": "telemetry:od:1", "stream_id": "od", "sequence": 1,
+             "captured_at": "2026-09-01T00:00:01Z", "payload": {"od": 0.1}}]}],
     }
     status, response = evolver_controller.sync(body, credential=enrolled["credential"], state_root=tmp_path)
     assert status == HTTPStatus.OK
@@ -130,10 +208,26 @@ def test_authenticated_sync_is_fenced_deduplicated_and_persistent(tmp_path):
     assert len(controller["events"]) == 1
     assert controller["event_cursors"] == {"run-a": 1}
     assert controller["telemetry_cursors"] == {"od": 2}
+    assert len(controller["history"]) == 2
+    assert evolver_controller.sync(body, credential=enrolled["credential"], state_root=tmp_path)[1]["history_projection"] == controller["history"]
+
+
+def test_history_replay_is_idempotent_and_changed_fact_is_conflict(tmp_path):
+    _, token = evolver_controller.create_enrollment_token(server_url="https://webui", state_root=tmp_path)
+    _, enrolled = evolver_controller.enroll({"controller_id": "edge-a", "enrollment_token": token["enrollment_token"]}, state_root=tmp_path)
+    base = {"controller_id": "edge-a", "controller_generation": 1, "history_batches": [{
+        "fact_type": "event", "stream_id": "run-a", "records": [{"fact_id": "fact-1", "run_id": "run-a", "sequence": 1, "payload": {"state": "running"}}]}]}
+    assert evolver_controller.sync(base, credential=enrolled["credential"], state_root=tmp_path)[0] == HTTPStatus.OK
+    assert evolver_controller.sync(base, credential=enrolled["credential"], state_root=tmp_path)[0] == HTTPStatus.OK
+    changed = {**base, "history_batches": [{"fact_type": "event", "stream_id": "run-a", "records": [{"fact_id": "fact-1", "run_id": "run-a", "sequence": 1, "payload": {"state": "stopped"}}]}]}
+    status, response = evolver_controller.sync(changed, credential=enrolled["credential"], state_root=tmp_path)
+    assert status == HTTPStatus.BAD_REQUEST and response["kind"] == "InvalidSyncBatch"
+    state = evolver_controller._read(evolver_controller.state_path(tmp_path))
+    assert len(state["controllers"]["edge-a"]["history"]) == 1
 
 
 def test_cursor_sync_retries_only_unacknowledged_records(tmp_path):
-    _, token = evolver_controller.create_enrollment_token(server_url="http://webui", state_root=tmp_path)
+    _, token = evolver_controller.create_enrollment_token(server_url="https://webui", state_root=tmp_path)
     _, enrolled = evolver_controller.enroll({"controller_id": "edge-a", "enrollment_token": token["enrollment_token"]}, state_root=tmp_path)
     def body(start: int, end: int):
         return {"controller_id": "edge-a", "controller_generation": 1,
@@ -215,141 +309,6 @@ def test_sync_ignores_delayed_hardware_observation(tmp_path, newer_outcome, olde
     assert stored["probe_outcome"] == newer_outcome
     assert stored["observed_at"] == "2026-08-31T12:00:02Z"
 
-
-@pytest.mark.parametrize(("outcome", "connection_state", "action"), [
-    (ProbeOutcome.PERMISSION, "degraded", "inspect_transport_access"),
-    (ProbeOutcome.BUSY, "degraded", "inspect_transport_access"),
-    (ProbeOutcome.MALFORMED, "ambiguous", "inspect_hardware_protocol"),
-    (ProbeOutcome.PROTOCOL, "ambiguous", "inspect_hardware_protocol"),
-    (ProbeOutcome.IDENTITY, "ambiguous", "inspect_hardware_identity"),
-])
-def test_edge_probe_failures_sync_to_the_typed_central_public_projection(
-    tmp_path, outcome, connection_state, action,
-):
-    """Probe diagnostics retain typed outcomes across the real sync boundary."""
-    central_root, edge_root = tmp_path / "central", tmp_path / "edge"
-    _, token = evolver_controller.create_enrollment_token(server_url="https://central", state_root=central_root)
-
-    def transport(url, body, headers, timeout):
-        del timeout
-        if url.endswith("/enroll"):
-            return evolver_controller.enroll(body, state_root=central_root)
-        return evolver_controller.sync(
-            body, credential=headers["authorization"].removeprefix("Bearer "), state_root=central_root,
-        )
-
-    class FailingTransport:
-        port = "/dev/ttyACM0"
-
-        def open(self):
-            pass
-
-        def close(self):
-            pass
-
-        def exchange(self, payload):
-            assert payload == "WHO_ARE_YOU_!"
-            raise ProbeError(outcome, f"raw {outcome.value} exception detail", evidence={"detail": "x" * 1000})
-
-    with EdgeStore(edge_root) as edge:
-        controller_id = edge.identity()["id"]
-        client = SyncClient(edge, transport=transport)
-        enrolled = client.enroll(server="https://central", token=token["enrollment_token"])
-        poll_once(edge, requested_port=None, discover=lambda _: ["/dev/ttyACM0"],
-                  transport_factory=lambda _: FailingTransport())
-        payload = client._batch(inventory=edge.list_instruments())
-        assert payload["hardware_observation"]["probe_outcome"] == outcome.value
-        assert payload["hardware_observation"]["transport_evidence"]["event"] == "probe_failed"
-        assert client.sync_once(inventory=edge.list_instruments()).status == HTTPStatus.OK
-
-    persisted = evolver_controller._read(evolver_controller.state_path(central_root))
-    stored = persisted["controllers"][controller_id]["hardware_observation"]
-    assert stored["probe_outcome"] == outcome.value
-    assert stored["connection_state"] == connection_state
-    assert stored["recommended_action"] == action
-    assert stored["transport"]["kind"] == "usb_serial"
-    assert stored["transport_evidence"]["event"] == "probe_failed"
-    assert len(stored["transport_evidence"]["detail"]) == 256
-    assert "ProbeError" not in repr(stored)
-
-    status, projection = evolver_controller.controllers(controller_id=controller_id, state_root=central_root)
-    assert status == HTTPStatus.OK
-    detected = projection["controller"]["detected_hardware"][0]
-    assert detected["probe_outcome"] == outcome.value
-    assert detected["transport"]["kind"] == "usb_serial"
-    assert detected["transport_evidence"]["event"] == "probe_failed"
-    assert len(detected["diagnostic"]) <= 256
-    assert "ProbeError" not in repr(projection)
-    assert projection["controller"]["binding"]["webui_controller_id"] == enrolled["webui_controller"]["id"]
-
-
-def test_edge_timeout_and_success_ordering_preserves_registered_instrument(tmp_path):
-    """A newer observation replaces evidence, never the durable inventory."""
-    central_root, edge_root = tmp_path / "central", tmp_path / "edge"
-    _, token = evolver_controller.create_enrollment_token(server_url="https://central", state_root=central_root)
-
-    def central_transport(url, body, headers, timeout):
-        del timeout
-        if url.endswith("/enroll"):
-            return evolver_controller.enroll(body, state_root=central_root)
-        return evolver_controller.sync(
-            body, credential=headers["authorization"].removeprefix("Bearer "), state_root=central_root,
-        )
-
-    class TimeoutTransport:
-        port = "/dev/ttyACM0"
-        def open(self): pass
-        def close(self): pass
-        def exchange(self, payload):
-            assert payload == "WHO_ARE_YOU_!"
-            raise ProbeError(ProbeOutcome.TIMEOUT, "timeout", evidence={"detail": "t" * 1000})
-
-    class SuccessTransport:
-        port = "/dev/ttyACM0"
-        def open(self): pass
-        def close(self): pass
-        def exchange(self, payload):
-            if payload == "WHO_ARE_YOU_!":
-                return "MEV|2|MEV-001|1|HELLO|type=minievolver,proto=2,fw=0.2,hw_proto=1,id=MEV-001"
-            if payload == "HW_STATUS_!":
-                return "HW|1|OK|STATUS|sleeves=2,pumps=6,hw_proto=1"
-            if payload.startswith("HW_READ_THERMISTOR,"):
-                return "HW|1|OK|THERMISTOR|channel=0,value=32000"
-            if payload.startswith("HW_READ_PHOTODIODE,"):
-                return "HW|1|OK|PHOTODIODE|channel=0,value=20000"
-            raise AssertionError(payload)
-
-    with EdgeStore(edge_root) as edge:
-        controller_id = edge.identity()["id"]
-        client = SyncClient(edge, transport=central_transport)
-        client.enroll(server="https://central", token=token["enrollment_token"])
-        poll_once(edge, requested_port=None, discover=lambda _: ["/dev/ttyACM0"],
-                  transport_factory=lambda _: TimeoutTransport())
-        timeout_payload = client._batch(inventory=edge.list_instruments())
-        assert timeout_payload["hardware_observation"]["probe_outcome"] == "timeout"
-        client.sync_once(inventory=edge.list_instruments())
-
-        poll_once(edge, requested_port=None, discover=lambda _: ["/dev/ttyACM0"],
-                  transport_factory=lambda _: SuccessTransport())
-        success_payload = client._batch(inventory=edge.list_instruments())
-        assert success_payload["hardware_observation"]["transport_evidence"]["event"] == "connected"
-        client.sync_once(inventory=edge.list_instruments())
-        instrument_id = edge.list_instruments()[0]["id"]
-
-        poll_once(edge, requested_port=None, discover=lambda _: ["/dev/ttyACM0"],
-                  transport_factory=lambda _: TimeoutTransport())
-        assert client._batch(inventory=edge.list_instruments())["hardware_observation"]["probe_outcome"] == "timeout"
-        client.sync_once(inventory=edge.list_instruments())
-
-    status, controller = evolver_controller.controllers(controller_id=controller_id, state_root=central_root)
-    assert status == HTTPStatus.OK
-    observed = controller["controller"]["detected_hardware"][0]
-    assert observed["probe_outcome"] == "timeout"
-    assert observed["transport_evidence"]["event"] == "probe_failed"
-    assert observed["transport"]["kind"] == "usb_serial"
-    instrument_status, instruments = evolver_controller.instruments(state_root=central_root)
-    assert instrument_status == HTTPStatus.OK
-    assert [item["id"] for item in instruments["instruments"]] == [instrument_id]
 
 
 def test_legacy_hardware_projection_does_not_replace_typed_observation(tmp_path):
@@ -447,6 +406,29 @@ def test_controller_projection_is_read_only_and_redacts_credentials(tmp_path):
     assert detail["controller"]["binding"] == enrolled["binding"]
 
 
+def test_edge_fact_projections_are_bounded_and_keep_intent_distinct(tmp_path):
+    _, token = evolver_controller.create_enrollment_token(server_url="https://central", state_root=tmp_path)
+    _, enrolled = evolver_controller.enroll({"controller_id": "edge-a", "enrollment_token": token["enrollment_token"]}, state_root=tmp_path)
+    body = {
+        "controller_id": "edge-a", "controller_generation": enrolled["binding"]["controller_generation"],
+        "telemetry_batches": [{"stream_id": "run-a:od", "first_sequence": 1, "last_sequence": 1,
+                               "records": [{"stream_id": "run-a:od", "sequence": 1, "run_id": "run-a", "od": 0.4}]}],
+        "event_batches": [{"run_id": "run-a", "records": [{"run_id": "run-a", "sequence": 1, "event_type": "run_started"}]}],
+        "command_acknowledgements": [{"command_id": "command-1", "disposition": "completed"}],
+    }
+    assert evolver_controller.sync(body, credential=enrolled["credential"], state_root=tmp_path)[0] == HTTPStatus.OK
+    status, payload = evolver_controller.edge_facts(controller_id="edge-a", run_id="run-a", limit=1, state_root=tmp_path)
+    assert status == HTTPStatus.OK
+    assert payload["telemetry"][0]["stream_id"] == "run-a:od"
+    assert payload["events"][0]["event_type"] == "run_started"
+    assert payload["measurements"] == []  # uncalibrated derived values are not measurements
+    assert payload["evidence"][0]["disposition"] == "completed"
+    assert "credential_digest" not in repr(payload)
+    status, routed = evolver_controller.dispatch("GET", "/api/evolver/controllers/edge-a/telemetry",
+                                                  None, query="run_id=run-a&limit=1", state_root=tmp_path)
+    assert status == HTTPStatus.OK and len(routed["telemetry"]) == 1
+
+
 def test_instrument_and_maintenance_projections_are_read_only_and_bounded(tmp_path, monkeypatch):
     monkeypatch.setenv(evolver_controller.STATE_ROOT_ENV, str(tmp_path))
     _, token = evolver_controller.create_enrollment_token(server_url="https://webui.example", state_root=tmp_path)
@@ -458,13 +440,13 @@ def test_instrument_and_maintenance_projections_are_read_only_and_bounded(tmp_pa
                        "transport": {"path": "/dev/ttyACM0"}, "vial_positions": [{"id": "vial-a", "position_index": 0}]}],
     }, credential=enrolled["credential"], state_root=tmp_path)
     assert status == HTTPStatus.OK
-    inventory_status, inventory = evolver_controller.dispatch("GET", "/api/evolver/instruments", None)
+    inventory_status, inventory = evolver_controller.dispatch("GET", "/api/evolver/instruments", None, state_root=tmp_path)
     assert inventory_status == HTTPStatus.OK
     assert inventory["instruments"][0]["controller_id"] == "edge-a"
     assert inventory["instruments"][0]["vial_positions"][0]["id"] == "vial-a"
-    detail_status, detail = evolver_controller.dispatch("GET", "/api/evolver/instruments/instrument-a", None)
+    detail_status, detail = evolver_controller.dispatch("GET", "/api/evolver/instruments/instrument-a", None, state_root=tmp_path)
     assert detail_status == HTTPStatus.OK and detail["instrument"]["source"] == "physical"
-    maintenance_status, maintenance = evolver_controller.dispatch("GET", "/api/evolver/maintenance", None)
+    maintenance_status, maintenance = evolver_controller.dispatch("GET", "/api/evolver/maintenance", None, state_root=tmp_path)
     assert maintenance_status == HTTPStatus.OK
     assert maintenance["maintenance"][0]["software_release"] == "1.2.3"
     assert "credential" not in repr(inventory)
@@ -483,11 +465,15 @@ def test_explicit_recovery_manifest_is_operationally_separate_and_diffed_by_stab
                     {"id": "source-identical", "revision": "2", "digest": "same", "content": {"x": 1}},
                     {"id": "source-missing", "revision": "1", "digest": "missing", "content": {"x": 2}},
                     {"id": "source-conflict", "revision": "3", "digest": "edge", "content": {"x": 3}},
+                    {"id": "source-persisted-list", "revision": "4", "digest": "list-same", "content": {"x": 4}},
+                    {"id": "source-persisted-list-conflict", "revision": "5", "digest": "list-edge", "content": {"x": 5}},
                 ]}
     state = evolver_controller._read(evolver_controller.state_path(tmp_path))
     state["content_snapshots"] = {
         "source-identical": {"2": {"id": "source-identical", "revision": "2", "digest": "same", "content": {"x": 1}}},
         "source-conflict": {"3": {"id": "source-conflict", "revision": "3", "digest": "central", "content": {"x": 9}}},
+        "source-persisted-list": [{"id": "source-persisted-list", "revision": "4", "digest": "list-same", "content": {"x": 4}}],
+        "source-persisted-list-conflict": [{"id": "source-persisted-list-conflict", "revision": "5", "digest": "list-central", "content": {"x": 9}}],
     }
     evolver_controller._write(evolver_controller.state_path(tmp_path), state)
     # The edge replies to the explicit request durably; this is not part of
@@ -501,7 +487,8 @@ def test_explicit_recovery_manifest_is_operationally_separate_and_diffed_by_stab
     diff_status, diff = evolver_controller.recovery_diff("edge-a", state_root=tmp_path)
     assert diff_status == HTTPStatus.OK
     assert {item["object_id"]: item["state"] for item in diff["items"]} == {
-        "source-identical": "identical", "source-missing": "missing_central", "source-conflict": "conflict"}
+        "source-identical": "identical", "source-missing": "missing_central", "source-conflict": "conflict",
+        "source-persisted-list": "identical", "source-persisted-list-conflict": "conflict"}
     import_status, imported = evolver_controller.import_recovery_snapshot("edge-a", {"snapshot_id": "source-missing", "action": "import"}, state_root=tmp_path)
     assert import_status == HTTPStatus.OK and imported["outcome"] == "imported"
     conflict_status, _ = evolver_controller.import_recovery_snapshot("edge-a", {"snapshot_id": "source-conflict", "action": "import"}, state_root=tmp_path)
