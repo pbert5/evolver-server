@@ -97,7 +97,10 @@ def load_calibration(cur: Any) -> tuple[dict[str, dict[str, Any]], dict[str, dic
     events = []
     for row in cur.fetchall():
         event = _plain(dict(row["payload"] or {}))
-        if not event:
+        if event:
+            events.append(event)
+            continue
+        else:
             event = _plain(dict(row))
         event["id"] = event.pop("event_id", event.get("id"))
         event["type"] = event["event_type"]
