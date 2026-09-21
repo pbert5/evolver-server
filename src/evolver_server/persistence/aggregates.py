@@ -39,7 +39,17 @@ def _identity_insert(cur: Any, table: str, key_where: str, key_values: tuple[Any
         if _canonical(existing_payload) != _canonical(dict(payload)):
             raise CentralStoreConflict(f"identity conflict in {table}: {key_values}")
         return
-    cur.execute(insert_sql, insert_values)
+    # The conflict arbiter is atomic. A concurrent identical replay reaches
+    # the comparison below; a different payload raises our typed conflict.
+    cur.execute(insert_sql + " ON CONFLICT DO NOTHING", insert_values)
+    if cur.rowcount == 0:
+        cur.execute(f"SELECT * FROM {table} WHERE {key_where}", key_values)
+        existing = cur.fetchone()
+        if existing is None:
+            raise CentralStoreConflict(f"identity conflict in {table}: {key_values}")
+        existing_payload = {key: _plain(existing.get(key)) for key in payload}
+        if _canonical(existing_payload) != _canonical(dict(payload)):
+            raise CentralStoreConflict(f"identity conflict in {table}: {key_values}")
 
 
 def load_release_history(cur: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:

@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import hashlib
+import copy
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
@@ -134,6 +135,40 @@ class PostgresCentralControllerStore(CentralControllerStore):
         return state, 0
 
     def save(self, state: dict[str, Any], revision: int) -> None:
+        baseline = getattr(state, "_baseline", None)
+        controller_revisions = getattr(state, "_controller_revisions", {})
+        if isinstance(baseline, dict):
+            # A compatibility caller may still present a reconstructed state,
+            # but only top-level aggregates that changed since load are
+            # eligible for persistence. This prevents an unrelated stale
+            # snapshot from replaying every aggregate in the database.
+            state = dict(state)
+            for key in ("enrollment_tokens", "commands", "manual_control_leases", "endpoint_assignments"):
+                if state.get(key) == baseline.get(key):
+                    state[key] = {} if isinstance(state.get(key), dict) else []
+            for key in ("release_history", "release_deployments", "release_events", "calibration_events", "run_resource_assignments", "run_resource_events", "od_blank_records"):
+                if state.get(key) == baseline.get(key):
+                    state[key] = []
+            def changed_records(key: str, identity_keys: tuple[str, ...]) -> list[Any]:
+                prior = baseline.get(key, [])
+                old = {tuple(item.get(field) for field in identity_keys): item for item in prior if isinstance(item, dict)}
+                return [item for item in state.get(key, []) if not isinstance(item, dict) or item != old.get(tuple(item.get(field) for field in identity_keys))]
+            for key, identity_keys in (
+                ("release_history", ("release_id",)), ("release_deployments", ("deployment_id",)),
+                ("release_events", ("event_id",)), ("calibration_events", ("id", "event_id")),
+                ("run_resource_assignments", ("id", "assignment_id")), ("run_resource_events", ("id", "event_id")),
+                ("od_blank_records", ("controller_id", "controller_generation", "record_id")),
+            ):
+                if isinstance(state.get(key), list):
+                    state[key] = changed_records(key, identity_keys)
+            for key in ("enrollment_tokens", "calibration_sessions", "calibration_artifacts", "manual_control_leases", "endpoint_assignments"):
+                if isinstance(state.get(key), dict) and isinstance(baseline.get(key), dict):
+                    state[key] = {item_key: item for item_key, item in state[key].items() if item != baseline[key].get(item_key)}
+            if isinstance(state.get("commands"), dict) and isinstance(baseline.get("commands"), dict):
+                state["commands"] = {
+                    controller_id: [item for item in commands if item != next((old for old in baseline["commands"].get(controller_id, []) if isinstance(old, dict) and old.get("command_id") == item.get("command_id")), None)]
+                    for controller_id, commands in state["commands"].items()
+                }
         with self._connect() as conn, conn.cursor() as cur:
             identity = state.get("webui_controller")
             if isinstance(identity, dict) and identity.get("id"):
@@ -147,7 +182,7 @@ class PostgresCentralControllerStore(CentralControllerStore):
                 baseline = getattr(state, "_baseline", None)
                 if isinstance(baseline, dict) and item == baseline.get("controllers", {}).get(controller_id):
                     continue
-                expected = getattr(state, "_controller_revisions", {}).get(controller_id)
+                expected = controller_revisions.get(controller_id)
                 if expected is None:
                     cur.execute("""INSERT INTO evolver.controller_projections
                         (controller_id, public_key_fingerprint, connection_state, last_sync_at,
